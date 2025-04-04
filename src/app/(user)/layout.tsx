@@ -7,6 +7,7 @@ import "easymde/dist/easymde.min.css";
 
 import { Toaster } from "@/components/ui/toaster";
 import Container from '../../components/container';
+import Header from '@/components/header';
 
 
 const figtree = Figtree({ subsets: ["latin"] });
@@ -28,6 +29,7 @@ export default function RootLayout({
         className={`bg-gray-100 text-black overflow-y-scroll ${figtree.className} `}
       >
         <Container>
+          <Header/>
           {children}
           <SpeedInsights />
           <Toaster />
