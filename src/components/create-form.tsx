@@ -56,7 +56,7 @@ export function CreateForm({
           title: "Successfully Created Blog",
           description: "Your Can View It From Your Blog Section",
         });
-        router.push("/blogs/all");
+        router.push("/");
       }
     } catch (error) {
       toast({
