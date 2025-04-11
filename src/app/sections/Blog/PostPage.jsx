@@ -6,6 +6,7 @@ import CategoryLabel from "@/components/blog/category";
 import markdownit from "markdown-it";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { CodeBlock } from "@/components/ui/code-block";
 const md = markdownit();
 export default function Post(props) {
   const { loading, post } = props;
@@ -107,8 +108,8 @@ export default function Post(props) {
 
         <hr className="my-5" />
         <ReactMarkdown
-          className="prose max-w-screen-xl  break-all dark:prose-invert"
-          remarkPlugins={[remarkGfm]} // Enables tables, lists, and footnotes
+          className="prose max-w-screen-xl break-all dark:prose-invert"
+          remarkPlugins={[remarkGfm]}
           components={{
             h1: ({ node, ...props }) => (
               <h1 className="text-4xl font-bold my-4 uppercase" {...props} />
@@ -142,14 +143,23 @@ export default function Post(props) {
                 />
               </div>
             ),
-            code: ({ node, inline, className, children, ...props }) => (
-              <code
-                className={`bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded ${className || ""}`}
-                {...props}
-              >
-                {children}
-              </code>
-            ),
+            code: ({ node, inline, className, children, ...props }) => {
+              const match = /language-(\w+)/.exec(className || '');
+              const language = match ? match[1] : '';
+              
+              return inline ? (
+                <code
+                  className="bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded"
+                  {...props}
+                >
+                  {children}
+                </code>
+              ) : (
+                <CodeBlock language={language}>
+                  {String(children).replace(/\n$/, '')}
+                </CodeBlock>
+              );
+            },
           }}
         >
           {post.pitch}
@@ -158,7 +168,7 @@ export default function Post(props) {
         {/* Back Button */}
         <div className="mt-12 text-center">
           <Link
-            href="/blogs/all"
+            href="/"
             className="inline-block bg-blue-600 text-white px-6 py-3 rounded-full text-lg font-semibold shadow-md hover:bg-blue-700 transition-all"
           >
             Back to Posts
@@ -168,3 +178,4 @@ export default function Post(props) {
     </>
   );
 }
+
