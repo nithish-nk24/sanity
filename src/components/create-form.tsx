@@ -35,11 +35,7 @@ export function CreateForm({
       metaDescription: formData.get("metaDescription") as string,
       description: formData.get("description") as string,
     };
-    // const title = formData.get("title") as string;
-    // const image = formData.get("image") as string;
-    // const category = formData.get("category") as string;
-    // const description = formData.get("description") as string;
-    // const pitch = formData.get("pitch") as string;
+
     try {
       const result = await createBlog(formValues, pitch);
       console.log(result);
@@ -65,9 +61,6 @@ export function CreateForm({
         description: "Please Try Again",
       });
     }
-    // console.log(formValues);
-
-    // TODO: Add post
   };
   return (
     <div

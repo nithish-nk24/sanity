@@ -44,12 +44,12 @@ export const createBlog = async (
       category,
       image: link,
       slug: {
-        _type: slug,
+        _type: "slug",
         current: slug,
       },
       author: {
         _type: "reference",
-        _ref: session?.id,
+        _ref: session?.id || "",
       },
       metaTitle,
       metaKeywords,
@@ -67,9 +67,9 @@ export const createBlog = async (
       status: "SUCCESS",
     });
   } catch (error) {
-    console.log(error);
+    console.error("Error creating blog:", error);
     return parseServerActionResponse({
-      error: JSON.stringify(error),
+      error: error instanceof Error ? error.message : "Failed to create blog",
       status: "ERROR",
     });
   }
