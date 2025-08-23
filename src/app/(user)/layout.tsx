@@ -8,6 +8,8 @@ import "easymde/dist/easymde.min.css";
 import { Toaster } from "@/components/ui/toaster";
 import Container from '../../components/container';
 import Header from '@/components/header';
+import Footer from '@/components/Footer';
+import { ThemeProvider } from "@/lib/theme";
 
 
 const figtree = Figtree({ subsets: ["latin"] });
@@ -26,14 +28,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`bg-gray-100 text-black overflow-y-scroll ${figtree.className} `}
+        className={`bg-background text-foreground overflow-y-scroll ${figtree.className}`}
       >
-        <Container>
-          <Header/>
-          {children}
-          <SpeedInsights />
-          <Toaster />
-        </Container>
+        <ThemeProvider>
+          <Container>
+            <Header/>
+            {children}
+            <Footer />
+            <SpeedInsights />
+            <Toaster />
+          </Container>
+        </ThemeProvider>
       </body>
     </html>
   );

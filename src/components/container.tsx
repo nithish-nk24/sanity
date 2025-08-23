@@ -5,7 +5,7 @@ type ContainerProps = {
 const Container = ({ children }: ContainerProps) => {
   return (
     //max width - 1536px
-    <div className="flex flex-col mx-auto max-w-screen-2xl min-h-screen">
+    <div className="flex flex-col mx-auto max-w-screen-2xl">
       {children}
     </div>
   );

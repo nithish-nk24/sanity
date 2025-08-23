@@ -1,8 +1,4 @@
 import { auth } from "@/auth";
-import {
-  BentoGrid,
-  BentoGridItem,
-} from "@/components/admin-components/bento-grid";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   Breadcrumb,
@@ -23,6 +19,14 @@ import { client } from "@/sanity/lib/client";
 import { BLOGS_QUERY } from "@/sanity/lib/queries";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { 
+  DashboardStats, 
+  BlogManagement, 
+  QuickActions, 
+  AnalyticsOverview, 
+  DashboardSkeleton 
+} from "@/components/admin-components";
+import { Suspense } from "react";
 
 type blogTypeProp = {
   title: string;
@@ -42,61 +46,90 @@ type blogTypeProp = {
   link: string;
   image: string;
 }[]
+
 export default async function Page() {
   const session = await auth();
-  // console.log(session);
   if (!session) redirect("/");
 
-  const blogs:blogTypeProp = await client.fetch(BLOGS_QUERY);
-  // console.log(blogs);
+  const blogs: blogTypeProp = await client.fetch(BLOGS_QUERY);
 
-  //delete Function 
-  const handleDelete = async(id:string)=>{
-    'use server'
-    await deleteBlog(id)
-    revalidatePath('/admin/dashboard')
-  }
+  // Calculate statistics
+  const totalBlogs = blogs.length;
+  const recentBlogs = blogs.slice(0, 5);
+  const categories = [...new Set(blogs.map(blog => blog.category))];
+  const totalCategories = categories.length;
+
+  // Get current month blogs
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const monthlyBlogs = blogs.filter(blog => {
+    const blogDate = new Date(blog._createdAt);
+    return blogDate.getMonth() === currentMonth && blogDate.getFullYear() === currentYear;
+  }).length;
+
+  // Get previous month blogs
+  const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+  const previousYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+  const previousMonthBlogs = blogs.filter(blog => {
+    const blogDate = new Date(blog._createdAt);
+    return blogDate.getMonth() === previousMonth && blogDate.getFullYear() === previousYear;
+  }).length;
+
   return (
     <>
       {session && (
         <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4">
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 sticky top-0 z-40">
               <SidebarTrigger className="-ml-1" />
               <Separator orientation="vertical" className="mr-2 h-4" />
               <Breadcrumb>
                 <BreadcrumbList>
-                  <BreadcrumbSeparator className="hidden md:block" />
                   <BreadcrumbItem>
-                    <BreadcrumbPage>Data Fetching</BreadcrumbPage>
+                    <BreadcrumbLink href="/admin">Admin</BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>Dashboard</BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
             </header>
-            <div className="flex flex-1 flex-col gap-4 p-4">
-              {/* <div className="grid auto-rows-min gap-4 md:grid-cols-3">
-                
-                <div className="aspect-video rounded-xl bg-muted/50" />
-                <div className="aspect-video rounded-xl bg-muted/50" />
-                <div className="aspect-video rounded-xl bg-muted/50" />
-              </div>
-              <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" /> */}
-              <BentoGrid>
-                {blogs.map((blog, i) => (
-                  <BentoGridItem
-                    title={blog.title}
-                    key={i}
-                    id={blog._id}
-                    description={blog.description}
-                    image={blog.image}
-                    author={blog.author.name}
-                    authorImg= {blog.author.image}
-                    onDelete={handleDelete}
-                    className={`bg-pink-100/80 text-black p-2 rounded-lg hover:scale-100 scale-95 duration-300 transition`}
-                  />
-                ))}
-              </BentoGrid>
+            
+            <div className="flex flex-1 flex-col gap-6 p-6 bg-gradient-to-br from-background via-background/50 to-muted/30 dark:from-background dark:via-background/80 dark:to-muted/20">
+              <Suspense fallback={<DashboardSkeleton />}>
+                {/* Welcome Section */}
+                <div className="space-y-2">
+                  <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                    Welcome back, {session.user?.name}!
+                  </h1>
+                  <p className="text-muted-foreground">
+                    Here&apos;s what&apos;s happening with your blog platform today.
+                  </p>
+                </div>
+
+                {/* Statistics Cards */}
+                <DashboardStats 
+                  totalBlogs={totalBlogs}
+                  monthlyBlogs={monthlyBlogs}
+                  totalCategories={totalCategories}
+                  recentBlogs={recentBlogs}
+                />
+
+                {/* Analytics Overview */}
+                <AnalyticsOverview 
+                  totalBlogs={totalBlogs}
+                  monthlyBlogs={monthlyBlogs}
+                  previousMonthBlogs={previousMonthBlogs}
+                />
+
+                {/* Quick Actions */}
+                <QuickActions />
+
+                {/* Blog Management */}
+                <BlogManagement blogs={blogs} />
+              </Suspense>
             </div>
           </SidebarInset>
         </SidebarProvider>

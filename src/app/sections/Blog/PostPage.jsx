@@ -7,6 +7,7 @@ import markdownit from "markdown-it";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/ui/code-block";
+import React from "react";
 const md = markdownit();
 export default function Post(props) {
   const { loading, post } = props;
@@ -117,9 +118,23 @@ export default function Post(props) {
             h2: ({ node, ...props }) => (
               <h2 className="text-3xl font-semibold my-3" {...props} />
             ),
-            p: ({ node, ...props }) => (
-              <p className="text-gray-700 dark:text-gray-300 my-2" {...props} />
-            ),
+            p: ({ node, children, ...props }) => {
+              // Check if the paragraph contains only a code block
+              const hasOnlyCodeBlock = React.Children.toArray(children).every(
+                child => React.isValidElement(child) && child.type === 'code' && !child.props.inline
+              );
+              
+              if (hasOnlyCodeBlock) {
+                // If it's just a code block, don't wrap it in a p tag
+                return <>{children}</>;
+              }
+              
+              return (
+                <p className="text-gray-700 dark:text-gray-300 my-2" {...props}>
+                  {children}
+                </p>
+              );
+            },
             ul: ({ node, ...props }) => (
               <ul className="list-disc list-inside my-3" {...props} />
             ),
@@ -147,14 +162,19 @@ export default function Post(props) {
               const match = /language-(\w+)/.exec(className || '');
               const language = match ? match[1] : '';
               
-              return inline ? (
-                <code
-                  className="bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded"
-                  {...props}
-                >
-                  {children}
-                </code>
-              ) : (
+              if (inline) {
+                return (
+                  <code
+                    className="bg-gray-200 dark:bg-gray-800 px-2 py-1 rounded"
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                );
+              }
+              
+              // For block code, return the CodeBlock directly
+              return (
                 <CodeBlock language={language}>
                   {String(children).replace(/\n$/, '')}
                 </CodeBlock>

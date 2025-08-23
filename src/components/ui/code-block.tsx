@@ -27,21 +27,23 @@ export function CodeBlock({ children, className, language }: CodeBlockProps) {
           <div className="w-3 h-3 rounded-full bg-green-500" />
         </div>
         {language && (
-          <div className="text-sm text-zinc-400">{language}</div>
+          <span className="text-sm text-zinc-400">{language}</span>
         )}
         <button
           onClick={onCopy}
           className="text-zinc-400 hover:text-zinc-200 transition-colors"
+          type="button"
+          aria-label="Copy code"
         >
           <Copy className="h-4 w-4" />
         </button>
       </div>
       <div className="p-4 overflow-x-auto">
         <pre className={cn(
-          "text-sm text-zinc-100 bg-transparent",
+          "text-sm text-zinc-100 bg-transparent m-0",
           className
         )}>
-          <code>{children}</code>
+          <code className="block">{children}</code>
         </pre>
       </div>
       {copied && (

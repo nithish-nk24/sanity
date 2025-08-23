@@ -1,29 +1,28 @@
-import Link from "next/link";
-import PostList from "@/components/postlist";
-import Container from "./container";
+"use client";
+
+import { useState } from "react";
+import BlogsHero from "./BlogsHero";
+import EnhancedBlogList from "./EnhancedBlogList";
 
 export default function HomePage({ posts }) {
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+  };
+
   return (
     <>
       {posts && (
-        <Container  >
-          <div className="grid gap-10 md:grid-cols-2 lg:gap-10 mt-10 ">
-            {posts.slice(0, 2).map(post => (
-              <PostList
-                key={post._id}
-                post={post}
-                aspect="landscape"
-                preloadImage={true}
-              />
-            ))}
-          </div>
-          <div className="mt-10 grid gap-10 md:grid-cols-2 lg:gap-10 xl:grid-cols-3 ">
-            {posts.slice(2, 14).map(post => (
-              <PostList key={post._id} post={post} aspect="square" />
-            ))}
-          </div>
+        <>
+          {/* Hero Section with Search */}
+          <BlogsHero posts={posts} onSearch={handleSearch} />
           
-        </Container>
+                     {/* Main Content Area */}
+           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <EnhancedBlogList posts={posts} searchQuery={searchQuery} />
+          </div>
+        </>
       )}
     </>
   );

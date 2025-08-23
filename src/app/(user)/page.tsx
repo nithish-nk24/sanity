@@ -1,47 +1,25 @@
-// import PagePath from "@/components/page-path";
-// import BlogsHero from "@/app/sections/Blogs/BlogsHero";
-// import BlogsList from "@/app/sections/Blogs/BlogsList";
 import { Metadata } from "next";
 import { Suspense } from "react";
-// import { blogs } from "../../../../../public/assets/blog";
 import Loading from "./loading";
 import { client } from "@/sanity/lib/client";
 import { BLOGS_QUERY } from "@/sanity/lib/queries";
 import HomePage from "@/app/sections/Blogs/home";
 
-type Props = {
-  params: {
-    slug: string;
-  };
+export const metadata: Metadata = {
+  title: "Cyfotok Academy - Blogs & Technology Education",
+  description: "Explore the latest technology insights, tutorials, and educational content from Cyfotok Academy. Learn web development, cybersecurity, AI/ML, and more.",
 };
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const slug = params.slug;
-  return {
-    title:
-      slug === "all"
-        ? "All Blogs - Cyfotok Academy"
-        : `Blog | Reading - Cyfotok Academy`,
-  };
-}
-const BlogsPage = async () => {
-  // const blogsData = blogs.sort((a, b) => a.date.localeCompare(b.date));
-  // console.log(blogs);
 
+const BlogsHomePage = async () => {
   const blogs = await client.fetch(BLOGS_QUERY);
 
-  // console.log(JSON.stringify(blogs, null, 2));
-
   return (
-    <main className="mt-28 mx-6 max-md:mx-3">
-      {/* najas nazar code  */}
-      {/* <BlogsHero /> */}
-
+    <main className="mt-16 mx-6 max-md:mx-3">
       <Suspense fallback={<Loading />}>
-        {/* <BlogsList blogsData={blogsData} /> */}
         <HomePage posts={blogs} />
       </Suspense>
     </main>
   );
 };
 
-export default BlogsPage;
+export default BlogsHomePage;
