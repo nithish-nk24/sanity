@@ -18,10 +18,26 @@ export function LoginForm() {
     e.preventDefault();
     setIsLoading(true);
     
+    console.log("🚀 Login form submitted with username:", formData.username);
+    
     try {
+      console.log("📞 Calling login function...");
       const result = await login(formData.username, formData.password);
+      console.log("📥 Login function result:", result);
+
+      // Check if result is undefined or null
+      if (!result) {
+        console.error("❌ Login function returned undefined/null");
+        toast({
+          variant: "destructive",
+          title: "Login Error",
+          description: "Server response was invalid. Please try again.",
+        });
+        return;
+      }
 
       if (result.success) {
+        console.log("✅ Login successful");
         toast({
           variant: "default",
           title: "Login Success",
@@ -34,6 +50,7 @@ export function LoginForm() {
           router.push('/admin/dashboard');
         }, 1000);
       } else {
+        console.log("❌ Login failed:", result.error);
         toast({
           variant: "destructive",
           title: "Login Failed",
@@ -42,7 +59,7 @@ export function LoginForm() {
         setFormData({ username: "", password: "" });
       }
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("❌ Login error:", error);
       toast({
         variant: "destructive",
         title: "Login Error",

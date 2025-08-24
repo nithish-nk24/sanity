@@ -5,19 +5,42 @@ import { UserSession } from "./types";
 import { authenticateUser, checkRateLimit } from "./auth-utils";
 
 export const login = async (username: string, password: string) => {
+  console.log("🔐 Login function called with username:", username);
+  
   try {
+    // Input validation
+    if (!username || !password) {
+      console.log("❌ Missing username or password");
+      return {
+        success: false,
+        error: "Username and password are required"
+      };
+    }
+
+    console.log("✅ Input validation passed");
+    
     // Check rate limiting
-    if (!(await checkRateLimit(username))) {
+    console.log("🔄 Checking rate limit...");
+    const rateLimitResult = await checkRateLimit(username);
+    console.log("📊 Rate limit result:", rateLimitResult);
+    
+    if (!rateLimitResult) {
+      console.log("❌ Rate limit exceeded");
       return {
         success: false,
         error: "Too many login attempts. Please try again later."
       };
     }
 
+    console.log("✅ Rate limit check passed");
+
     // Authenticate user with secure system
+    console.log("🔑 Authenticating user...");
     const authResult = await authenticateUser(username, password);
+    console.log("🔐 Authentication result:", authResult);
     
-    if (authResult.success) {
+    if (authResult && authResult.success) {
+      console.log("✅ Authentication successful");
       // Return success with user data - no redirect needed
       return {
         success: true,
@@ -25,13 +48,14 @@ export const login = async (username: string, password: string) => {
         message: "Login successful"
       };
     } else {
+      console.log("❌ Authentication failed:", authResult?.error || "Unknown error");
       return {
         success: false,
-        error: authResult.error
+        error: authResult?.error || "Authentication failed"
       };
     }
   } catch (error) {
-    console.error("Login error:", error);
+    console.error("❌ Login function error:", error);
     return {
       success: false,
       error: "An unexpected error occurred during login"

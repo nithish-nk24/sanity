@@ -3,6 +3,14 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Environment variables configuration
+  env: {
+    CUSTOM_KEY: process.env.CUSTOM_KEY,
+  },
+  // Ensure environment variables are available at build time
+  experimental: {
+    // ppr:'incremental'
+  },
   images: {
     remotePatterns: [
       {
@@ -18,9 +26,6 @@ const nextConfig = {
         hostname:"*"
       }
     ],
-  },
-  experimental:{
-    // ppr:'incremental'
   },
   // Security configurations
   async headers() {
