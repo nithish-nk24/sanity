@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 import { AUTHOR_BY_GITHUB_ID_QUERY } from "@/sanity/lib/queries";
 import { client } from "@/sanity/lib/client";
 import { writeClient } from "@/sanity/lib/write-client";
+import { authenticateUser } from "@/lib/auth-utils";
 
 // Extend the User type to include custom properties
 interface ExtendedUser {
@@ -13,6 +14,8 @@ interface ExtendedUser {
   image?: string | null;
   username?: string;
   bio?: string;
+  role?: string;
+  permissions?: string[];
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -132,12 +135,24 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             id: user.id,
           });
         token.id = userData?._id;
+      } else if (account?.provider === 'credentials' && user) {
+        // Handle credentials provider
+        const extendedUser = user as ExtendedUser;
+        token.id = extendedUser.id;
+        token.username = extendedUser.username;
+        token.role = extendedUser.role;
+        token.permissions = extendedUser.permissions;
       }
 
       return token;
     },
     async session({ session, token }) {
-      Object.assign(session, { id: token.id });
+      Object.assign(session, { 
+        id: token.id,
+        username: token.username,
+        role: token.role,
+        permissions: token.permissions
+      });
       return session;
     },
   },

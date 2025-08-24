@@ -3,6 +3,7 @@ import "../globals.css";
 import 'easymde/dist/easymde.min.css';
 import { ThemeProvider } from "@/lib/theme";
 import { AdminNavigation } from "@/components/admin-components/AdminNavigation";
+import { SessionProvider } from "next-auth/react";
 
 export const metadata = {
   title: "Cyfotok Academy - Admin Dashboard",
@@ -18,9 +19,11 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-background text-foreground antialiased">
         <ThemeProvider>
-          <AdminNavigation />
-          {children}
-          <Toaster />
+          <SessionProvider>
+            <AdminNavigation />
+            {children}
+            <Toaster />
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 import { Label } from "./label";
 import { Input } from "@/components/ui/input";
-import { login } from "@/lib/auth";
+import { signIn } from "next-auth/react";
 import { toast } from "@/hooks/use-toast";
 
 export function LoginForm() {
@@ -21,35 +21,16 @@ export function LoginForm() {
     console.log("🚀 Login form submitted with username:", formData.username);
     
     try {
-      console.log("📞 Calling login function...");
-      const result = await login(formData.username, formData.password);
-      console.log("📥 Login function result:", result);
+      console.log("📞 Calling NextAuth signIn...");
+      const result = await signIn("credentials", {
+        username: formData.username,
+        password: formData.password,
+        redirect: false,
+      });
+      
+      console.log("📥 SignIn result:", result);
 
-      // Check if result is undefined or null
-      if (!result) {
-        console.error("❌ Login function returned undefined/null");
-        toast({
-          variant: "destructive",
-          title: "Login Error",
-          description: "Server response was invalid. Please try again.",
-        });
-        return;
-      }
-
-      if (result.success) {
-        console.log("✅ Login successful");
-        toast({
-          variant: "default",
-          title: "Login Success",
-          description: `Welcome back, ${result.user?.name}!`,
-        });
-        setFormData({ username: "", password: "" });
-        
-        // Redirect to dashboard after successful login
-        setTimeout(() => {
-          router.push('/admin/dashboard');
-        }, 1000);
-      } else {
+      if (result?.error) {
         console.log("❌ Login failed:", result.error);
         toast({
           variant: "destructive",
@@ -57,6 +38,19 @@ export function LoginForm() {
           description: result.error || "Invalid username or password",
         });
         setFormData({ username: "", password: "" });
+      } else if (result?.ok) {
+        console.log("✅ Login successful");
+        toast({
+          variant: "default",
+          title: "Login Success",
+          description: "Welcome back!",
+        });
+        setFormData({ username: "", password: "" });
+        
+        // Redirect to dashboard after successful login
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 1000);
       }
     } catch (error) {
       console.error("❌ Login error:", error);
