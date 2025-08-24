@@ -17,8 +17,8 @@ async function resetAdminPassword() {
   try {
     console.log('🔐 Resetting admin password...\n');
     
-    // New password to set
-    const newPassword = 'Admin@2024!';
+    // New password to set - Much more secure
+    const newPassword = ';37T%2KTa1(LCCh}OGAh';
     
     // Hash the new password
     console.log('🔑 Hashing new password...');

@@ -1,9 +1,5 @@
 import NextAuth from "next-auth";
-import GitHub from "next-auth/providers/github";
 import Credentials from "next-auth/providers/credentials";
-import { AUTHOR_BY_GITHUB_ID_QUERY } from "@/sanity/lib/queries";
-import { client } from "@/sanity/lib/client";
-import { writeClient } from "@/sanity/lib/write-client";
 import { authenticateUser } from "@/lib/auth-utils";
 
 // Extend the User type to include custom properties
@@ -20,51 +16,35 @@ interface ExtendedUser {
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
-    GitHub,
-    // Alternative: Personal Access Token provider
+    // Username/Password credentials provider
     Credentials({
-      id: "github-token",
-      name: "GitHub Token",
+      id: "credentials",
+      name: "Credentials",
       credentials: {
-        token: { label: "GitHub Token", type: "text" }
+        username: { label: "Username", type: "text" },
+        password: { label: "Password", type: "password" }
       },
       async authorize(credentials): Promise<ExtendedUser | null> {
-        if (!credentials?.token) return null;
+        if (!credentials?.username || !credentials?.password) return null;
         
         try {
-          // Fetch user data using the token
-          const response = await fetch('https://api.github.com/user', {
-            headers: {
-              'Authorization': `token ${credentials.token}`,
-              'Accept': 'application/vnd.github.v3+json'
-            }
-          });
+          // Use our custom authentication system
+          const authResult = await authenticateUser(credentials.username, credentials.password);
           
-          if (!response.ok) return null;
+          if (authResult.success && authResult.user) {
+            return {
+              id: authResult.user._id,
+              name: authResult.user.name,
+              email: authResult.user.email,
+              username: authResult.user.username,
+              role: authResult.user.role,
+              permissions: authResult.user.permissions
+            };
+          }
           
-          const user = await response.json();
-          
-          // Fetch user emails
-          const emailsResponse = await fetch('https://api.github.com/user/emails', {
-            headers: {
-              'Authorization': `token ${credentials.token}`,
-              'Accept': 'application/vnd.github.v3+json'
-            }
-          });
-          
-          const emails = await emailsResponse.ok ? await emailsResponse.json() : [];
-          const primaryEmail = emails.find((email: any) => email.primary)?.email || user.email;
-          
-          return {
-            id: user.id.toString(),
-            name: user.name || user.login,
-            email: primaryEmail,
-            image: user.avatar_url,
-            username: user.login,
-            bio: user.bio || ""
-          };
+          return null;
         } catch (error) {
-          console.error('Error fetching GitHub user:', error);
+          console.error('Error authenticating user:', error);
           return null;
         }
       }
@@ -75,67 +55,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     error: '/auth/error',
   },
   callbacks: {
-    async signIn({ user, account, profile }) {
-      // Handle both OAuth and credentials providers
-      if (account?.provider === 'github') {
-        // OAuth flow
-        const existingUser = await client
-          .withConfig({ useCdn: false })
-          .fetch(AUTHOR_BY_GITHUB_ID_QUERY, {
-            id: profile?.id,
-          });
-
-        if (!existingUser) {
-          await writeClient.create({
-            _type: "author",
-            id: profile?.id,
-            name: user.name,
-            username: profile?.login,
-            email: user.email,
-            image: user.image,
-            bio: profile?.bio || "",
-          });
-        }
-      } else if (account?.provider === 'github-token') {
-        // Personal Access Token flow
-        const extendedUser = user as ExtendedUser;
-        const existingUser = await client
-          .withConfig({ useCdn: false })
-          .fetch(AUTHOR_BY_GITHUB_ID_QUERY, {
-            id: user.id,
-          });
-
-        if (!existingUser) {
-          await writeClient.create({
-            _type: "author",
-            id: user.id,
-            name: user.name,
-            username: extendedUser.username || user.name,
-            email: user.email,
-            image: user.image,
-            bio: extendedUser.bio || "",
-          });
-        }
+    async signIn({ user, account }) {
+      // Only handle credentials provider now
+      if (account?.provider === 'credentials') {
+        // Credentials provider - user is already authenticated
+        return true;
       }
-
-      return true;
+      return false;
     },
-    async jwt({ token, account, profile, user }) {
-      if (account?.provider === 'github' && profile) {
-        const userData = await client
-          .withConfig({ useCdn: false })
-          .fetch(AUTHOR_BY_GITHUB_ID_QUERY, {
-            id: profile?.id,
-          });
-        token.id = userData?._id;
-      } else if (account?.provider === 'github-token' && user) {
-        const userData = await client
-          .withConfig({ useCdn: false })
-          .fetch(AUTHOR_BY_GITHUB_ID_QUERY, {
-            id: user.id,
-          });
-        token.id = userData?._id;
-      } else if (account?.provider === 'credentials' && user) {
+    async jwt({ token, account, user }) {
+      if (account?.provider === 'credentials' && user) {
         // Handle credentials provider
         const extendedUser = user as ExtendedUser;
         token.id = extendedUser.id;
