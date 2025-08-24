@@ -98,3 +98,73 @@ export const deleteBlog = async(id:string)=>{
       });
     }
 }
+
+export const updateBlog = async (
+  id: string,
+  form: {
+    title: string,
+    metaTitle: string,
+    link: string,
+    metaKeywords: string,
+    category: string,
+    metaDescription: string
+    description: string
+  },
+  pitch: string
+) => {
+  const session = await auth();
+  
+  if (!session)
+    return parseServerActionResponse({
+      error: "Not signed in",
+      status: "ERROR",
+    });
+
+  const { title, description, category, link, metaTitle, metaKeywords, metaDescription } = form
+
+  if (!title || !description || !category || !link || !metaTitle || !metaKeywords || !metaDescription)
+    return parseServerActionResponse({
+      error: "Missing required fields",
+      status: "ERROR",
+    });
+
+  const slug = slugify(title as string, { lower: true, strict: true });
+
+  try {
+    const blog = {
+      title,
+      description,
+      category,
+      image: link,
+      slug: {
+        _type: "slug",
+        current: slug,
+      },
+      author: {
+        _type: "reference",
+        _ref: session?.id || "",
+      },
+      metaTitle,
+      metaKeywords,
+      metaDescription,
+      pitch,
+    };
+
+    const result = await writeClient
+      .patch(id)
+      .set(blog)
+      .commit();
+
+    return parseServerActionResponse({
+      ...result,
+      error: "",
+      status: "SUCCESS",
+    });
+  } catch (error) {
+    console.error("Error updating blog:", error);
+    return parseServerActionResponse({
+      error: error instanceof Error ? error.message : "Failed to update blog",
+      status: "ERROR",
+    });
+  }
+};

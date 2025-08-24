@@ -122,6 +122,7 @@ export default async function Page() {
                   totalBlogs={totalBlogs}
                   monthlyBlogs={monthlyBlogs}
                   previousMonthBlogs={previousMonthBlogs}
+                  totalCategories={totalCategories}
                 />
 
                 {/* Quick Actions */}

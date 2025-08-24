@@ -16,9 +16,16 @@ import {
 } from "@/components/ui/sidebar";
 import { redirect } from "next/navigation";
 
-export default async function Page() {
+interface PageProps {
+  searchParams: { edit?: string };
+}
+
+export default async function Page({ searchParams }: PageProps) {
   const session = await auth();
   if (!session) redirect('/')
+
+  const isEditMode = !!searchParams.edit;
+  const blogId = searchParams.edit;
 
   return (
     <>
@@ -33,13 +40,19 @@ export default async function Page() {
                 <BreadcrumbList>
                   <BreadcrumbSeparator className="hidden md:block" />
                   <BreadcrumbItem>
-                    <BreadcrumbPage>Create Blog</BreadcrumbPage>
+                    <BreadcrumbPage>
+                      {isEditMode ? 'Edit Blog' : 'Create Blog'}
+                    </BreadcrumbPage>
                   </BreadcrumbItem>
                 </BreadcrumbList>
               </Breadcrumb>
             </header>
             <div className="flex flex-1 flex-col bg-gradient-to-br from-background via-background/50 to-muted/30 dark:from-background dark:via-background/80 dark:to-muted/20 min-h-screen">
-              <CreateForm className="p-6 max-w-5xl mx-auto w-full"/>
+              <CreateForm 
+                className="p-6 max-w-5xl mx-auto w-full"
+                isEditMode={isEditMode}
+                blogId={blogId}
+              />
             </div>
           </SidebarInset>
         </SidebarProvider>

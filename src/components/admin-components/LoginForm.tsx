@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { cn } from "@/lib/utils";
 
@@ -9,32 +10,46 @@ import { login } from "@/lib/auth";
 import { toast } from "@/hooks/use-toast";
 
 export function LoginForm() {
-  const [formData, setFormData] = useState({ userId: "", password: "" });
+  const [formData, setFormData] = useState({ username: "", password: "" });
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    setIsLoading(true);
+    
     try {
-      // console.log(formData.userId, formData.password);
+      const result = await login(formData.username, formData.password);
 
-      const result = await login(formData.userId, formData.password);
-
-      if (result === false) {
-        toast({
-          variant: "destructive",
-          title: "Login Failed",
-          description: "User id or password is incorrect",
-        });
-        setFormData({ userId: "", password: "" });
-      }else{
+      if (result.success) {
         toast({
           variant: "default",
           title: "Login Success",
-          description: "You have successfully logged in",
+          description: `Welcome back, ${result.user?.name}!`,
         });
-        setFormData({ userId: "", password: "" });
+        setFormData({ username: "", password: "" });
+        
+        // Redirect to dashboard after successful login
+        setTimeout(() => {
+          router.push('/admin/dashboard');
+        }, 1000);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: result.error || "Invalid username or password",
+        });
+        setFormData({ username: "", password: "" });
       }
     } catch (error) {
-      console.log(error);
+      console.error("Login error:", error);
+      toast({
+        variant: "destructive",
+        title: "Login Error",
+        description: "An unexpected error occurred. Please try again.",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -53,14 +68,15 @@ export function LoginForm() {
 
       <form className="my-8" onSubmit={handleSubmit}>
         <LabelInputContainer className="mb-4">
-          <Label htmlFor="userId">User ID</Label>
+          <Label htmlFor="username">Username</Label>
           <Input
-            id="userId"
-            placeholder="Enter your user id"
+            id="username"
+            placeholder="Enter your username"
             type="text"
-            name="userId"
-            value={formData.userId}
+            name="username"
+            value={formData.username}
             onChange={handleChange}
+            disabled={isLoading}
           />
         </LabelInputContainer>
         <LabelInputContainer className="mb-8">
@@ -72,14 +88,16 @@ export function LoginForm() {
             name="password"
             value={formData.password}
             onChange={handleChange}
+            disabled={isLoading}
           />
         </LabelInputContainer>
 
         <button
-          className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset]"
+          className="bg-gradient-to-br relative group/btn from-black dark:from-zinc-900 dark:to-zinc-900 to-neutral-600 block dark:bg-zinc-800 w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] dark:shadow-[0px_1px_0px_0px_var(--zinc-800)_inset,0px_-1px_0px_0px_var(--zinc-800)_inset] disabled:opacity-50 disabled:cursor-not-allowed"
           type="submit"
+          disabled={isLoading}
         >
-          Login &rarr;
+          {isLoading ? "Logging in..." : "Login →"}
           <BottomGradient />
         </button>
 

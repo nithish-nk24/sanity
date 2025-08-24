@@ -8,12 +8,14 @@ interface AnalyticsOverviewProps {
   totalBlogs: number;
   monthlyBlogs: number;
   previousMonthBlogs: number;
+  totalCategories?: number;
 }
 
 export function AnalyticsOverview({ 
   totalBlogs, 
   monthlyBlogs, 
-  previousMonthBlogs 
+  previousMonthBlogs,
+  totalCategories = 0
 }: AnalyticsOverviewProps) {
   // Calculate growth percentage
   const growthPercentage = previousMonthBlogs > 0 

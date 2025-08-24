@@ -17,7 +17,12 @@ import {
   User,
   Tag,
   FileText,
-  Plus
+  Plus,
+  Download,
+  CheckSquare,
+  Square,
+  Settings,
+  ExternalLink
 } from "lucide-react";
 import Image from "next/image";
 import { deleteBlog } from "@/lib/action";
@@ -27,8 +32,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { parseISO, format } from "date-fns";
+import Link from "next/link";
 
 interface Blog {
   _id: string;
@@ -51,6 +58,8 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [sortBy, setSortBy] = useState('date');
+  const [selectedBlogs, setSelectedBlogs] = useState<Set<string>>(new Set());
+  const [showBulkActions, setShowBulkActions] = useState(false);
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -94,6 +103,63 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
     }
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedBlogs.size === 0) return;
+    
+    if (confirm(`Are you sure you want to delete ${selectedBlogs.size} selected blogs?`)) {
+      for (const id of selectedBlogs) {
+        await deleteBlog(id);
+      }
+      setSelectedBlogs(new Set());
+      setShowBulkActions(false);
+      revalidatePath('/admin/dashboard');
+    }
+  };
+
+  const handleSelectAll = () => {
+    if (selectedBlogs.size === filteredBlogs.length) {
+      setSelectedBlogs(new Set());
+    } else {
+      setSelectedBlogs(new Set(filteredBlogs.map(blog => blog._id)));
+    }
+  };
+
+  const handleSelectBlog = (id: string) => {
+    const newSelected = new Set(selectedBlogs);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedBlogs(newSelected);
+    setShowBulkActions(newSelected.size > 0);
+  };
+
+  const handleExport = () => {
+    const exportData = filteredBlogs.map(blog => ({
+      title: blog.title,
+      slug: blog.slug.current,
+      category: blog.category,
+      author: blog.author.name,
+      description: blog.description,
+      created: format(parseISO(blog._createdAt), "yyyy-MM-dd"),
+      link: blog.link
+    }));
+
+    const csvContent = [
+      Object.keys(exportData[0]).join(','),
+      ...exportData.map(row => Object.values(row).map(value => `"${value}"`).join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `blogs-export-${format(new Date(), 'yyyy-MM-dd')}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const formatDate = (dateString: string) => {
     return format(parseISO(dateString), "MMM dd, yyyy");
   };
@@ -111,18 +177,71 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline">
-              <Filter className="h-4 w-4 mr-2" />
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={handleExport}
+              disabled={filteredBlogs.length === 0}
+            >
+              <Download className="h-4 w-4 mr-2" />
               Export
             </Button>
-            <Button size="sm">
-              <Edit className="h-4 w-4 mr-2" />
-              Bulk Edit
+            <Button 
+              size="sm" 
+              variant="outline"
+              onClick={() => setShowBulkActions(!showBulkActions)}
+              className={showBulkActions ? 'bg-blue-50 text-blue-700 border-blue-200' : ''}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Bulk Actions
             </Button>
+            <Link href="/admin/createblog">
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Blog
+              </Button>
+            </Link>
           </div>
         </div>
       </CardHeader>
       <CardContent>
+        {/* Bulk Actions Bar */}
+        {showBulkActions && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  className="text-blue-700 hover:text-blue-800"
+                >
+                  {selectedBlogs.size === filteredBlogs.length ? (
+                    <CheckSquare className="h-4 w-4 mr-2" />
+                  ) : (
+                    <Square className="h-4 w-4 mr-2" />
+                  )}
+                  {selectedBlogs.size === filteredBlogs.length ? 'Deselect All' : 'Select All'}
+                </Button>
+                <span className="text-sm text-blue-700">
+                  {selectedBlogs.size} of {filteredBlogs.length} blogs selected
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={selectedBlogs.size === 0}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Selected
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Search and Filters */}
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="relative flex-1">
@@ -165,6 +284,28 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
                 key={blog._id}
                 className="group bg-white rounded-lg border border-gray-200 hover:border-gray-300 hover:shadow-lg transition-all duration-300 overflow-hidden"
               >
+                {/* Selection Checkbox */}
+                {showBulkActions && (
+                  <div className="absolute top-3 left-3 z-10">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className={`h-6 w-6 p-0 rounded-full ${
+                        selectedBlogs.has(blog._id) 
+                          ? 'bg-blue-600 text-white' 
+                          : 'bg-white/90 text-gray-600 hover:bg-white'
+                      }`}
+                      onClick={() => handleSelectBlog(blog._id)}
+                    >
+                      {selectedBlogs.has(blog._id) ? (
+                        <CheckSquare className="h-3 w-3" />
+                      ) : (
+                        <Square className="h-3 w-3" />
+                      )}
+                    </Button>
+                  </div>
+                )}
+
                 {/* Blog Image */}
                 <div className="relative h-48 overflow-hidden">
                   <Image
@@ -182,13 +323,24 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View
+                        <DropdownMenuItem asChild>
+                          <Link href={`/blog/${blog.slug.current}`} className="flex items-center">
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </Link>
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
+                        <DropdownMenuItem asChild>
+                          <Link href={`/admin/createblog?edit=${blog._id}`} className="flex items-center">
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem asChild>
+                          <Link href={blog.link} target="_blank" className="flex items-center">
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Open Link
+                          </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem 
                           onClick={() => handleDelete(blog._id)}
@@ -249,10 +401,12 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
                 }
               </p>
               {!searchTerm && selectedCategory === 'all' && (
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Blog
-                </Button>
+                <Link href="/admin/createblog">
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Blog
+                  </Button>
+                </Link>
               )}
             </div>
           )}

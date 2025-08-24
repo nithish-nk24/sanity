@@ -13,10 +13,13 @@ import { Label } from "./admin-components/label";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import MDEditor from "@uiw/react-md-editor";
-import { useState } from "react";
-import { createBlog } from "@/lib/action";
+import { useState, useEffect } from "react";
+import { createBlog, updateBlog } from "@/lib/action";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { client } from "@/sanity/lib/client";
+import { BLOG_BY_ID_QUERY } from "@/sanity/lib/queries";
+import { validateForm, validateInput } from "@/lib/validation";
 import { 
   FileText, 
   Image, 
@@ -44,8 +47,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function CreateForm({
   className,
+  isEditMode = false,
+  blogId,
   ...props
-}: React.ComponentPropsWithoutRef<"div">) {
+}: React.ComponentPropsWithoutRef<"div"> & {
+  isEditMode?: boolean;
+  blogId?: string;
+}) {
   const [pitch, setPitch] = useState("");
   const [chatgptContent, setChatgptContent] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,6 +71,38 @@ export function CreateForm({
   });
   const { toast } = useToast();
   const router = useRouter();
+
+  // Fetch blog data when editing
+  useEffect(() => {
+    if (isEditMode && blogId) {
+      const fetchBlogData = async () => {
+        try {
+          const blog = await client.fetch(BLOG_BY_ID_QUERY, { id: blogId });
+          if (blog) {
+            setFormData({
+              title: blog.title || "",
+              metaTitle: blog.metaTitle || "",
+              image: blog.image || "",
+              metaKeywords: blog.metaKeywords || "",
+              category: blog.category || "",
+              metaDescription: blog.metaDescription || "",
+              description: blog.description || "",
+            });
+            setPitch(blog.pitch || "");
+          }
+        } catch (error) {
+          console.error("Error fetching blog:", error);
+          toast({
+            variant: "destructive",
+            title: "Error",
+            description: "Failed to load blog data for editing.",
+          });
+        }
+      };
+      
+      fetchBlogData();
+    }
+  }, [isEditMode, blogId, toast]);
 
   // Validation states
   const isBasicInfoValid = formData.title && formData.category && formData.description;
@@ -144,43 +184,85 @@ export function CreateForm({
       return;
     }
 
+    // Comprehensive form validation
+    const validationRules = {
+      title: { type: 'title' as const, required: true },
+      metaTitle: { type: 'metaTitle' as const, required: true },
+      metaKeywords: { type: 'metaKeywords' as const, required: false },
+      category: { type: 'category' as const, required: true },
+      metaDescription: { type: 'metaDescription' as const, required: true },
+      description: { type: 'description' as const, required: true }
+    };
+    
+    const formValidation = validateForm(formData, validationRules);
+    if (!formValidation.isValid) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: Object.values(formValidation.errors)[0] || "Please check your input.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     const formValues = {
-      title: formData.title,
-      metaTitle: formData.metaTitle,
-      link: formData.image,
-      metaKeywords: formData.metaKeywords,
-      category: formData.category,
-      metaDescription: formData.metaDescription,
-      description: formData.description,
+      title: formValidation.sanitizedData.title,
+      metaTitle: formValidation.sanitizedData.metaTitle,
+      link: (() => {
+        // Validate image URL if provided
+        if (formData.image && formData.image.trim()) {
+          const urlValidation = validateInput(formData.image, 'link', { required: false });
+          if (!urlValidation.isValid) {
+            throw new Error(urlValidation.error || 'Invalid image URL');
+          }
+          return urlValidation.sanitizedValue || '';
+        }
+        return '';
+      })(),
+      metaKeywords: formValidation.sanitizedData.metaKeywords,
+      category: formValidation.sanitizedData.category,
+      metaDescription: formValidation.sanitizedData.metaDescription,
+      description: formValidation.sanitizedData.description,
     };
 
     try {
-      const result = await createBlog(formValues, pitch);
-      console.log(result);
-      if (result.status === "SUCCESS") {
-        // Reset form
-        setFormData({
-          title: "",
-          metaTitle: "",
-          image: "",
-          metaKeywords: "",
-          category: "",
-          metaDescription: "",
-          description: "",
-        });
-        setPitch("");
+      let result;
+      if (isEditMode && blogId) {
+        result = await updateBlog(blogId, formValues, pitch);
+      } else {
+        result = await createBlog(formValues, pitch);
+      }
 
-        toast({
-          title: "🎉 Blog Created Successfully!",
-          description: "Your blog post is now live and ready to be viewed.",
-        });
+      if (result.status === "SUCCESS") {
+        if (isEditMode) {
+          toast({
+            title: "🎉 Blog Updated Successfully!",
+            description: "Your blog post has been updated and is now live.",
+          });
+        } else {
+          // Reset form only for new blogs
+          setFormData({
+            title: "",
+            metaTitle: "",
+            image: "",
+            metaKeywords: "",
+            category: "",
+            metaDescription: "",
+            description: "",
+          });
+          setPitch("");
+
+          toast({
+            title: "🎉 Blog Created Successfully!",
+            description: "Your blog post is now live and ready to be viewed.",
+          });
+        }
         router.push("/admin/dashboard");
       }
     } catch (error) {
       toast({
         variant: "destructive",
-        title: "Error Creating Blog",
+        title: `Error ${isEditMode ? 'Updating' : 'Creating'} Blog`,
         description: "Something went wrong. Please try again.",
       });
     } finally {
@@ -434,8 +516,12 @@ This post covers the fundamentals of promises and their practical applications.`
               <Edit3 className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Create New Blog Post</h1>
-              <p className="text-muted-foreground">Share your thoughts and ideas with the world</p>
+              <h1 className="text-3xl font-bold text-foreground">
+                {isEditMode ? 'Edit Blog Post' : 'Create New Blog Post'}
+              </h1>
+              <p className="text-muted-foreground">
+                {isEditMode ? 'Update your existing blog post' : 'Share your thoughts and ideas with the world'}
+              </p>
             </div>
           </div>
           
@@ -548,6 +634,7 @@ This post covers the fundamentals of promises and their practical applications.`
                   {/* Image Section */}
                   <div className="space-y-3">
                     <Label htmlFor="image" className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                      {/* eslint-disable-next-line jsx-a11y/alt-text */}
                       <Image className="h-4 w-4 text-purple-600" />
                       Featured Image URL *
                     </Label>
@@ -1203,6 +1290,7 @@ function example() {
                             }}
                             className="w-full justify-start h-auto p-3 bg-green-100/50 hover:bg-green-200/50 dark:bg-green-900/20 dark:hover:bg-green-800/30"
                           >
+                            {/* eslint-disable-next-line jsx-a11y/alt-text */}
                             <Image className="h-4 w-4 mr-2 text-green-600" />
                             <div className="text-left">
                               <div className="font-medium text-green-800 dark:text-green-200">Image</div>
@@ -1274,12 +1362,12 @@ function example() {
                     {isSubmitting ? (
                       <>
                         <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-3"></div>
-                        Publishing...
+                        {isEditMode ? 'Updating...' : 'Publishing...'}
                       </>
                     ) : (
                       <>
                         <Save className="h-5 w-5 mr-3" />
-                        Publish Blog Post
+                        {isEditMode ? 'Update Blog Post' : 'Publish Blog Post'}
                         <ArrowRight className="h-5 w-5 ml-3" />
                       </>
                     )}
