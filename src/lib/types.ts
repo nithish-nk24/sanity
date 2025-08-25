@@ -135,6 +135,18 @@ export type SessionType = {
   expires?: string | undefined;
 };
 
+export type ExtendedSession = {
+  user?: {
+    name?: string | undefined;
+    image?: string | undefined;
+  };
+  expires?: string | undefined;
+  id?: string;
+  username?: string;
+  role?: string;
+  permissions?: string[];
+};
+
 export type UserSession = {
   user: {
     name: string;

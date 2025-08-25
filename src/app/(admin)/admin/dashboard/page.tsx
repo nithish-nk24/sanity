@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/sidebar";
 import { deleteBlog } from "@/lib/action";
 import { client } from "@/sanity/lib/client";
-import { BLOGS_QUERY } from "@/sanity/lib/queries";
+import { ADMIN_BLOGS_QUERY } from "@/sanity/lib/queries";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { 
@@ -45,13 +45,14 @@ type blogTypeProp = {
   _id: string;
   link: string;
   image: string;
+  published?: boolean;
 }[]
 
 export default async function Page() {
   const session = await auth();
   if (!session) redirect("/");
 
-  const blogs: blogTypeProp = await client.fetch(BLOGS_QUERY);
+  const blogs: blogTypeProp = await client.fetch(ADMIN_BLOGS_QUERY);
 
   // Calculate statistics
   const totalBlogs = blogs.length;

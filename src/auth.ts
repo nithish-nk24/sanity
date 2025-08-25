@@ -25,13 +25,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials): Promise<ExtendedUser | null> {
-        if (!credentials?.username || !credentials?.password) return null;
+        if (!credentials?.username || !credentials?.password) {
+          console.log('❌ Missing credentials in authorize callback');
+          return null;
+        }
         
         try {
+          console.log('🔐 Attempting to authenticate user:', credentials.username);
+          
           // Use our custom authentication system
           const authResult = await authenticateUser(credentials.username, credentials.password);
           
-          if (authResult.success && authResult.user) {
+          console.log('📊 Authentication result:', {
+            success: authResult?.success,
+            error: authResult?.error || 'No error message',
+            hasUser: !!authResult?.user
+          });
+          
+          if (authResult?.success && authResult.user) {
+            console.log('✅ User authenticated successfully:', authResult.user.username);
             return {
               id: authResult.user._id,
               name: authResult.user.name,
@@ -40,11 +52,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               role: authResult.user.role,
               permissions: authResult.user.permissions
             };
+          } else {
+            console.log('❌ Authentication failed:', authResult?.error || 'Unknown error');
+            return null;
           }
-          
-          return null;
         } catch (error) {
-          console.error('Error authenticating user:', error);
+          console.error('💥 Error in authorize callback:', error);
+          if (error instanceof Error) {
+            console.error('   Stack:', error.stack);
+          }
           return null;
         }
       }
@@ -76,13 +92,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      Object.assign(session, { 
+      return {
+        ...session,
         id: token.id,
         username: token.username,
         role: token.role,
         permissions: token.permissions
-      });
-      return session;
+      };
     },
   },
 });

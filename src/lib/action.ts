@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { parseServerActionResponse } from "./utils";
 import slugify from "slugify";
 import { writeClient } from "@/sanity/lib/write-client";
+import { ExtendedSession } from "./types";
 
 export const createBlog = async (
 //   state: any,
@@ -18,7 +19,7 @@ export const createBlog = async (
   },
   pitch: string
 ) => {
-  const session = await auth();
+  const session = await auth() as ExtendedSession;
   // console.log(session);
   
   if (!session)
@@ -55,6 +56,7 @@ export const createBlog = async (
       metaKeywords,
       metaDescription,
       pitch,
+      published: true,
     };
 
     const result = await writeClient.create({
@@ -112,7 +114,7 @@ export const updateBlog = async (
   },
   pitch: string
 ) => {
-  const session = await auth();
+  const session = await auth() as ExtendedSession;
   
   if (!session)
     return parseServerActionResponse({
@@ -148,6 +150,7 @@ export const updateBlog = async (
       metaKeywords,
       metaDescription,
       pitch,
+      published: true,
     };
 
     const result = await writeClient

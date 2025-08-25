@@ -48,6 +48,7 @@ interface Blog {
   pitch: string;
   link: string;
   image: string;
+  published?: boolean;
 }
 
 interface BlogManagementProps {
@@ -60,6 +61,7 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
   const [sortBy, setSortBy] = useState('date');
   const [selectedBlogs, setSelectedBlogs] = useState<Set<string>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
+  const [publishedFilter, setPublishedFilter] = useState('all');
 
   // Get unique categories
   const categories = useMemo(() => {
@@ -74,7 +76,10 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
                            blog.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            blog.author.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = selectedCategory === 'all' || blog.category === selectedCategory;
-      return matchesSearch && matchesCategory;
+      const matchesPublished = publishedFilter === 'all' || 
+        (publishedFilter === 'published' && blog.published) ||
+        (publishedFilter === 'draft' && !blog.published);
+      return matchesSearch && matchesCategory && matchesPublished;
     });
 
     // Sort blogs
@@ -94,12 +99,34 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
     });
 
     return filtered;
-  }, [blogs, searchTerm, selectedCategory, sortBy]);
+  }, [blogs, searchTerm, selectedCategory, sortBy, publishedFilter]);
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this blog?')) {
       await deleteBlog(id);
       revalidatePath('/admin/dashboard');
+    }
+  };
+
+  const handleTogglePublish = async (id: string, published: boolean) => {
+    try {
+      // Update the blog's published status in Sanity
+      const response = await fetch('/api/blog/toggle-publish', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ id, published }),
+      });
+
+      if (response.ok) {
+        // Refresh the page to show updated status
+        window.location.reload();
+      } else {
+        console.error('Failed to toggle publish status');
+      }
+    } catch (error) {
+      console.error('Error toggling publish status:', error);
     }
   };
 
@@ -265,6 +292,15 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
             ))}
           </select>
           <select
+            value={publishedFilter}
+            onChange={(e) => setPublishedFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            <option value="all">All Status</option>
+            <option value="published">Published</option>
+            <option value="draft">Draft</option>
+          </select>
+          <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -335,6 +371,22 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
                             Edit
                           </Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => handleTogglePublish(blog._id, !blog.published)}
+                          className="flex items-center"
+                        >
+                          {blog.published ? (
+                            <>
+                              <Square className="h-4 w-4 mr-2" />
+                              Unpublish
+                            </>
+                          ) : (
+                            <>
+                              <CheckSquare className="h-4 w-4 mr-2" />
+                              Publish
+                            </>
+                          )}
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
                           <Link href={blog.link} target="_blank" className="flex items-center">
@@ -359,6 +411,12 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
                   <div className="flex items-center gap-2 mb-2">
                     <Badge variant="secondary" className="text-xs">
                       {blog.category}
+                    </Badge>
+                    <Badge 
+                      variant={blog.published ? "default" : "destructive"} 
+                      className="text-xs"
+                    >
+                      {blog.published ? "Published" : "Draft"}
                     </Badge>
                     <span className="text-xs text-gray-500">
                       {formatDate(blog._createdAt)}
@@ -395,12 +453,12 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No blogs found</h3>
               <p className="text-gray-500 mb-4">
-                {searchTerm || selectedCategory !== 'all' 
+                {searchTerm || selectedCategory !== 'all' || publishedFilter !== 'all'
                   ? 'Try adjusting your search or filter criteria'
                   : 'Get started by creating your first blog post'
                 }
               </p>
-              {!searchTerm && selectedCategory === 'all' && (
+              {!searchTerm && selectedCategory === 'all' && publishedFilter === 'all' && (
                 <Link href="/admin/createblog">
                   <Button>
                     <Plus className="h-4 w-4 mr-2" />

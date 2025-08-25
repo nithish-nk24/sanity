@@ -50,5 +50,12 @@ export const blog = defineType({
       name: "pitch",
       type: "markdown",
     }),
+    defineField({
+      name: "published",
+      type: "boolean",
+      title: "Published",
+      description: "Set to true to make this blog post visible to the public",
+      initialValue: true,
+    }),
   ],
 });
