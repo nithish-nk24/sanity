@@ -360,7 +360,7 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem asChild>
-                          <Link href={`/blog/${blog.slug.current}`} className="flex items-center">
+                          <Link href={`/blog/${blog.slug?.current || blog._id}`} className="flex items-center">
                             <Eye className="h-4 w-4 mr-2" />
                             View
                           </Link>
@@ -387,13 +387,17 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
                             </>
                           )}
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <Link href={blog.link} target="_blank" className="flex items-center">
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Open Link
-                          </Link>
-                        </DropdownMenuItem>
+                        {blog.link && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem asChild>
+                              <Link href={blog.link || '#'} target="_blank" rel="noopener noreferrer" className="flex items-center">
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Open Link
+                              </Link>
+                            </DropdownMenuItem>
+                          </>
+                        )}
                         <DropdownMenuItem 
                           onClick={() => handleDelete(blog._id)}
                           className="text-red-600"

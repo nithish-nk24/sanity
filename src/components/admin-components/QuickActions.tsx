@@ -6,12 +6,28 @@ import { Plus, Edit, Settings, BarChart3, Users, FileText } from "lucide-react";
 import Link from "next/link";
 
 export function QuickActions() {
+  const handleHashClick = (hash: string) => {
+    const element = document.querySelector(hash);
+    if (element) {
+      const headerOffset = 80; // Account for sticky header
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth'
+      });
+      
+      // Update URL without reloading
+      window.history.pushState(null, '', hash);
+    }
+  };
   const actions = [
     {
       title: "Create Blog",
       description: "Write and publish a new blog post",
       icon: Plus,
-      href: "/admin/dashboard/createBlog",
+      href: "/admin/createblog",
       color: "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700",
       iconColor: "text-blue-600 dark:text-blue-400",
       bgColor: "bg-blue-50 dark:bg-blue-950/30",
@@ -83,7 +99,7 @@ export function QuickActions() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {actions.map((action, index) => (
             <div key={index} className="group">
-              {action.href.startsWith('/') ? (
+              {action.href && action.href.startsWith('/') ? (
                 <Link href={action.href}>
                   <div className={`p-4 rounded-lg border ${action.borderColor} hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-blue-500/20 transition-all duration-300 group-hover:-translate-y-1 cursor-pointer bg-gradient-to-br from-background to-muted/20 dark:from-background dark:to-muted/10 hover:from-background hover:to-muted/30 dark:hover:from-background dark:hover:to-muted/20`}>
                     <div className="flex items-center space-x-3">
@@ -102,7 +118,10 @@ export function QuickActions() {
                   </div>
                 </Link>
               ) : (
-                <div className={`p-4 rounded-lg border ${action.borderColor} hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-blue-500/20 transition-all duration-300 group-hover:-translate-y-1 cursor-pointer bg-gradient-to-br from-background to-muted/20 dark:from-background dark:to-muted/10 hover:from-background hover:to-muted/30 dark:hover:from-background dark:hover:to-muted/20`}>
+                <div 
+                  onClick={() => handleHashClick(action.href)}
+                  className={`p-4 rounded-lg border ${action.borderColor} hover:shadow-md dark:hover:shadow-lg dark:hover:shadow-blue-500/20 transition-all duration-300 group-hover:-translate-y-1 cursor-pointer bg-gradient-to-br from-background to-muted/20 dark:from-background dark:to-muted/10 hover:from-background hover:to-muted/30 dark:hover:from-background dark:hover:to-muted/20`}
+                >
                   <div className="flex items-center space-x-3">
                     <div className={`p-2 rounded-lg ${action.color} text-white transition-colors shadow-lg`}>
                       <action.icon className="h-5 w-5" />

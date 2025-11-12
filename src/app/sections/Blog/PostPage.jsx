@@ -150,21 +150,40 @@ export default function Post(props) {
               // Fallback to default pre rendering
               return <pre {...props}>{children}</pre>;
             },
-            h3: ({ node, ...props }) => (
-              <h3 className="text-2xl font-semibold mt-8 mb-4 break-words hyphens-none text-gray-900 dark:text-gray-100 leading-tight" {...props} />
-            ),
+            h3: ({ node, children, ...props }) => {
+              // Check if heading contains emoji (like 🔎) for special styling
+              const headingText = typeof children === 'string' ? children : 
+                React.Children.toArray(children).join('');
+              const hasEmoji = /[\u{1F300}-\u{1F9FF}]/u.test(headingText);
+              
+              return (
+                <h3 className={`text-2xl font-semibold mt-8 mb-4 break-words hyphens-none text-gray-900 dark:text-gray-100 leading-tight ${hasEmoji ? 'flex items-center gap-2' : ''}`} {...props} />
+              );
+            },
             h4: ({ node, ...props }) => (
               <h4 className="text-xl font-semibold mt-6 mb-3 break-words hyphens-none text-gray-900 dark:text-gray-100 leading-tight" {...props} />
             ),
             ul: ({ node, ...props }) => (
-              <ul className="list-disc list-outside my-6 ml-6 space-y-3 marker:text-gray-500 dark:marker:text-gray-400" {...props} />
+              <ul className="list-disc list-outside my-6 ml-8 space-y-3 marker:text-blue-600 dark:marker:text-blue-400" {...props} />
             ),
             ol: ({ node, ...props }) => (
-              <ol className="list-decimal list-outside my-6 ml-6 space-y-3 marker:text-gray-500 dark:marker:text-gray-400" {...props} />
+              <ol className="list-decimal list-outside my-6 ml-8 space-y-4 marker:text-blue-600 dark:marker:text-blue-400 marker:font-semibold" {...props} />
             ),
-            li: ({ node, ...props }) => (
-              <li className="break-words hyphens-none pl-3 text-gray-700 dark:text-gray-300 leading-7" {...props} />
-            ),
+            li: ({ node, children, ...props }) => {
+              // Check if list item contains code blocks or other block elements
+              const childrenArray = React.Children.toArray(children);
+              const hasBlockElements = childrenArray.some(
+                child => React.isValidElement(child) && 
+                (child.type === 'pre' || child.type?.name === 'CodeBlock' || 
+                 (typeof child.type === 'string' && ['p', 'div', 'ul', 'ol'].includes(child.type)))
+              );
+              
+              return (
+                <li className={`break-words hyphens-none pl-4 text-gray-700 dark:text-gray-300 leading-7 ${hasBlockElements ? 'my-4 space-y-3' : ''}`} {...props}>
+                  {children}
+                </li>
+              );
+            },
             blockquote: ({ node, ...props }) => (
               <blockquote
                 className="border-l-4 border-blue-500 dark:border-blue-400 pl-6 py-2 my-6 italic text-gray-700 dark:text-gray-300 break-words hyphens-none bg-blue-50 dark:bg-blue-950/20 rounded-r-lg"
@@ -183,15 +202,29 @@ export default function Post(props) {
               </div>
             ),
             a: ({ node, href, children, ...props }) => {
-              // Ensure href is always a valid string (handle null, undefined, empty string)
-              const validHref = (href && typeof href === 'string' && href.trim() !== '') ? href : '#';
+              // Ensure href is always a valid string (handle null, undefined, empty string, objects, etc.)
+              let validHref = '#';
+              
+              if (href) {
+                if (typeof href === 'string' && href.trim() !== '') {
+                  validHref = href.trim();
+                } else if (typeof href === 'object' && href !== null) {
+                  // Handle Next.js Link object format if needed
+                  validHref = '#';
+                }
+              }
+              
+              // Remove href from props to avoid conflicts
+              const { href: _, ...restProps } = props;
               
               // Check if it's an external link
-              const isExternal = validHref.startsWith('http://') || 
-                                validHref.startsWith('https://') || 
-                                validHref.startsWith('//') ||
-                                validHref.startsWith('mailto:') ||
-                                validHref.startsWith('tel:');
+              const isExternal = validHref !== '#' && (
+                validHref.startsWith('http://') || 
+                validHref.startsWith('https://') || 
+                validHref.startsWith('//') ||
+                validHref.startsWith('mailto:') ||
+                validHref.startsWith('tel:')
+              );
               
               if (isExternal) {
                 return (
@@ -200,21 +233,19 @@ export default function Post(props) {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline decoration-2 underline-offset-2 transition-colors font-medium"
-                    {...props}
+                    {...restProps}
                   >
                     {children}
                   </a>
                 );
               }
               
-              // For internal links, ensure href is a string
-              const internalHref = typeof validHref === 'string' ? validHref : '#';
-              
+              // For internal links, use Next.js Link with guaranteed string href
               return (
                 <Link
-                  href={internalHref}
+                  href={validHref}
                   className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 underline decoration-2 underline-offset-2 transition-colors font-medium"
-                  {...props}
+                  {...restProps}
                 >
                   {children}
                 </Link>
@@ -237,6 +268,26 @@ export default function Post(props) {
               // For block code, return the code element as-is (will be handled by pre component)
               return <code className={className} {...props}>{children}</code>;
             },
+            table: ({ node, ...props }) => (
+              <div className="my-8 overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden" {...props} />
+              </div>
+            ),
+            thead: ({ node, ...props }) => (
+              <thead className="bg-gray-50 dark:bg-gray-800" {...props} />
+            ),
+            tbody: ({ node, ...props }) => (
+              <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700" {...props} />
+            ),
+            tr: ({ node, ...props }) => (
+              <tr className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors" {...props} />
+            ),
+            th: ({ node, ...props }) => (
+              <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider" {...props} />
+            ),
+            td: ({ node, ...props }) => (
+              <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300 break-words" {...props} />
+            ),
           }}
         >
           {post.pitch}
