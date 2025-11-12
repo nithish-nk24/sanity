@@ -140,3 +140,44 @@
 .w-md-editor-toolbar {
   padding: 10px !important;
 }
+
+/* Prevent word breaking in blog content */
+.prose {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+}
+
+.prose h1,
+.prose h2,
+.prose h3,
+.prose h4,
+.prose h5,
+.prose h6 {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+}
+
+.prose p,
+.prose li,
+.prose blockquote {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+}
+
+.prose ul,
+.prose ol {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.prose ul li,
+.prose ol li {
+  word-break: normal;
+  overflow-wrap: break-word;
+  hyphens: none;
+  padding-left: 0.5rem;
+  margin-bottom: 0.5rem;
+}

@@ -19,8 +19,8 @@ export function CodeBlock({ children, className, language }: CodeBlockProps) {
   };
 
   return (
-    <div className="relative my-4 rounded-lg bg-zinc-950">
-      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800">
+    <div className="relative my-4 rounded-lg bg-zinc-950 dark:bg-zinc-900">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 dark:border-zinc-700">
         <div className="flex items-center space-x-2">
           <div className="w-3 h-3 rounded-full bg-red-500" />
           <div className="w-3 h-3 rounded-full bg-yellow-500" />

@@ -30,7 +30,7 @@ export default function Post(props) {
           <CategoryLabel categories={post.category} />
         </div>
 
-        <h1 className="text-brand-primary mb-3 mt-2 text-center text-3xl font-semibold tracking-tight dark:text-white lg:text-4xl lg:leading-snug">
+        <h1 className="text-brand-primary mb-3 mt-2 text-center text-3xl font-semibold tracking-tight dark:text-white lg:text-4xl lg:leading-snug break-words hyphens-none">
           {post.title}
         </h1>
 
@@ -51,7 +51,9 @@ export default function Post(props) {
             </div>
             <div>
               <p className="text-gray-800 dark:text-gray-400">
-                <Link href={`#`}>{post.author.name}</Link>
+                {post?.author?.name && (
+                  <Link href={`#`}>{post.author.name}</Link>
+                )}
               </p>
               <div className="flex items-center space-x-2 text-sm">
                 <time
@@ -109,14 +111,14 @@ export default function Post(props) {
 
         <hr className="my-5" />
         <ReactMarkdown
-          className="prose max-w-screen-xl break-all dark:prose-invert"
+          className="prose max-w-screen-xl break-words dark:prose-invert"
           remarkPlugins={[remarkGfm]}
           components={{
             h1: ({ node, ...props }) => (
-              <h1 className="text-4xl font-bold my-4 uppercase" {...props} />
+              <h1 className="text-4xl font-bold my-4 uppercase break-words hyphens-none" {...props} />
             ),
             h2: ({ node, ...props }) => (
-              <h2 className="text-3xl font-semibold my-3" {...props} />
+              <h2 className="text-3xl font-semibold my-3 break-words hyphens-none" {...props} />
             ),
             p: ({ node, children, ...props }) => {
               // Check if the paragraph contains only a code block
@@ -130,20 +132,29 @@ export default function Post(props) {
               }
               
               return (
-                <p className="text-gray-700 dark:text-gray-300 my-2" {...props}>
+                <p className="text-gray-700 dark:text-gray-300 my-2 break-words hyphens-none" {...props}>
                   {children}
                 </p>
               );
             },
+            h3: ({ node, ...props }) => (
+              <h3 className="text-2xl font-semibold my-2 break-words hyphens-none" {...props} />
+            ),
+            h4: ({ node, ...props }) => (
+              <h4 className="text-xl font-semibold my-2 break-words hyphens-none" {...props} />
+            ),
             ul: ({ node, ...props }) => (
-              <ul className="list-disc list-inside my-3" {...props} />
+              <ul className="list-disc list-outside my-3 ml-6 space-y-2" {...props} />
             ),
             ol: ({ node, ...props }) => (
-              <ol className="list-decimal list-inside my-3" {...props} />
+              <ol className="list-decimal list-outside my-3 ml-6 space-y-2" {...props} />
+            ),
+            li: ({ node, ...props }) => (
+              <li className="break-words hyphens-none pl-2 text-gray-700 dark:text-gray-300" {...props} />
             ),
             blockquote: ({ node, ...props }) => (
               <blockquote
-                className="border-l-4 border-gray-500 pl-4 italic text-gray-600 dark:text-gray-300"
+                className="border-l-4 border-gray-500 pl-4 italic text-gray-600 dark:text-gray-300 break-words hyphens-none"
                 {...props}
               />
             ),
@@ -158,6 +169,44 @@ export default function Post(props) {
                 />
               </div>
             ),
+            a: ({ node, href, children, ...props }) => {
+              // Ensure href is always a valid string (handle null, undefined, empty string)
+              const validHref = (href && typeof href === 'string' && href.trim() !== '') ? href : '#';
+              
+              // Check if it's an external link
+              const isExternal = validHref.startsWith('http://') || 
+                                validHref.startsWith('https://') || 
+                                validHref.startsWith('//') ||
+                                validHref.startsWith('mailto:') ||
+                                validHref.startsWith('tel:');
+              
+              if (isExternal) {
+                return (
+                  <a
+                    href={validHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 dark:text-blue-400 hover:underline"
+                    {...props}
+                  >
+                    {children}
+                  </a>
+                );
+              }
+              
+              // For internal links, ensure href is a string
+              const internalHref = typeof validHref === 'string' ? validHref : '#';
+              
+              return (
+                <Link
+                  href={internalHref}
+                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                  {...props}
+                >
+                  {children}
+                </Link>
+              );
+            },
             code: ({ node, inline, className, children, ...props }) => {
               const match = /language-(\w+)/.exec(className || '');
               const language = match ? match[1] : '';

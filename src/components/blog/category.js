@@ -2,6 +2,10 @@ import Link from "next/link";
 import { Label } from "@/components/ui/label";
 
 export default function CategoryLabel({ categories, nomargin = false }) {
+  if (!categories) {
+    return null;
+  }
+  
   return (
     <div className="flex gap-3">
       <Link href={'#'}>
