@@ -26,7 +26,6 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { deleteBlog } from "@/lib/action";
-import { revalidatePath } from "next/cache";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,7 +103,8 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this blog?')) {
       await deleteBlog(id);
-      revalidatePath('/admin/dashboard');
+      // Since this is a client component, trigger a client-side refresh
+      window.location.reload();
     }
   };
 
@@ -139,7 +139,7 @@ export function BlogManagement({ blogs }: BlogManagementProps) {
       }
       setSelectedBlogs(new Set());
       setShowBulkActions(false);
-      revalidatePath('/admin/dashboard');
+      window.location.reload();
     }
   };
 
