@@ -16,26 +16,19 @@ const routes = [
   },
   {
     name: "Courses",
-    path: "/courses/all",
-    hasDropdown: true,
-    subItems: [
-      { name: "All Courses", path: "/courses/all" },
-      { name: "Web Development", path: "/courses/web-development" },
-      { name: "Data Science", path: "/courses/data-science" },
-      { name: "AI & ML", path: "/courses/ai-ml" },
-    ]
+    path: "https://academy.cyfotok.com",
   },
   {
     name: "Internships",
-    path: "/internships",
+    path: "https://cyfotok.com/internship",
   },
   {
     name: "Careers",
-    path: "/careers",
+    path: "https://cyfotok.com/careers",
   },
   {
     name: "Contact",
-    path: "/contact",
+    path: "https://cyfotok.com/contact",
   },
 ];
 const Header = () => {
@@ -127,19 +120,31 @@ const Header = () => {
                       )}
                     </AnimatePresence>
                   </div>
+                ) : route.name === "Careers" ? (
+                  <Link
+                    href="https://cyfotok.com/careers"
+                    target="_blank"
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                      "hover:bg-muted hover:text-blue-600",
+                      "text-foreground"
+                    )}
+                  >
+                    Careers
+                  </Link>
                 ) : (
-                                     <Link
-                     href={route.path}
-                     className={cn(
-                       "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                       "hover:bg-muted hover:text-blue-600",
-                       activePathName === route.path
-                         ? "text-blue-600 bg-blue-50"
-                         : "text-foreground"
-                     )}
-                   >
-                     {route.name}
-                   </Link>
+                  <Link
+                    href={route.path}
+                    className={cn(
+                      "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                      "hover:bg-muted hover:text-blue-600",
+                      activePathName === route.path
+                        ? "text-blue-600 bg-blue-50"
+                        : "text-foreground"
+                    )}
+                  >
+                    {route.name}
+                  </Link>
                 )}
               </div>
             ))}
@@ -149,14 +154,14 @@ const Header = () => {
           <div className="hidden md:flex items-center space-x-3">
             <ThemeToggle />
                          <Link
-               href="https://cyfotok.academy/courses"
+               href="https://academy.cyfotok.com"
                target="_blank"
                className="px-4 py-2 text-sm font-medium text-foreground hover:text-blue-600 transition-colors duration-200"
              >
                Explore More
              </Link>
             <Link
-              href="https://calendly.com/meet-cyfotok/demo-session"
+              href="https://calendly.com/cyfotok-adu/free-demo-class-cyfotok-academy"
               target="_blank"
             >
               <RainbowButton className="hover:scale-105 transition-transform duration-200">
@@ -241,20 +246,33 @@ const Header = () => {
                           )}
                         </AnimatePresence>
                       </div>
+                    ) : route.name === "Careers" ? (
+                      <Link
+                        href="https://cyfotok.com/careers"
+                        target="_blank"
+                        className={cn(
+                          "block px-4 py-3 rounded-lg font-medium transition-all duration-200",
+                          "hover:bg-muted",
+                          "text-foreground"
+                        )}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Careers
+                      </Link>
                     ) : (
-                                             <Link
-                         href={route.path}
-                         className={cn(
-                           "block px-4 py-3 rounded-lg font-medium transition-all duration-200",
-                           "hover:bg-muted",
-                           activePathName === route.path
-                             ? "text-blue-600 bg-blue-50"
-                             : "text-foreground"
-                         )}
-                         onClick={() => setIsMobileMenuOpen(false)}
-                       >
-                         {route.name}
-                       </Link>
+                      <Link
+                        href={route.path}
+                        className={cn(
+                          "block px-4 py-3 rounded-lg font-medium transition-all duration-200",
+                          "hover:bg-muted",
+                          activePathName === route.path
+                            ? "text-blue-600 bg-blue-50"
+                            : "text-foreground"
+                        )}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        {route.name}
+                      </Link>
                     )}
                   </motion.div>
                 ))}

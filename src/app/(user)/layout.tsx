@@ -10,6 +10,7 @@ import Container from '../../components/container';
 import Header from '@/components/header';
 import Footer from '@/components/Footer';
 import { ThemeProvider } from "@/lib/theme";
+import { GoogleAnalytics } from "@/components/GoogleAnalytics";
 
 
 const figtree = Figtree({ subsets: ["latin"] });
@@ -36,6 +37,7 @@ export default function RootLayout({
             {children}
             <Footer />
             <SpeedInsights />
+            <GoogleAnalytics />
             <Toaster />
           </Container>
         </ThemeProvider>
