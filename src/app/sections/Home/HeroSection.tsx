@@ -36,13 +36,15 @@ const HeroSection = () => {
           </Link>
         </div>
       </div>
-      <div className="w-full max-w-2xl max-md:w-full  ">
+      <div className="w-full max-w-2xl max-md:w-full">
         <Image
           src={assets.heroImg}
           alt="hero"
           width={500}
           height={500}
-          className="w-full h-full rounded-3xl object-cover mt-5" 
+          className="w-full h-full rounded-3xl object-cover mt-5"
+          priority
+          fetchPriority="high"
         />
       </div>
     </section>

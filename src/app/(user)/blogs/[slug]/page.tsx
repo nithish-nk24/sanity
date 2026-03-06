@@ -2,9 +2,7 @@ import PagePath from "@/components/page-path";
 // import BlogsHero from "@/app/sections/Blogs/BlogsHero";
 // import BlogsList from "@/app/sections/Blogs/BlogsList";
 import { Metadata } from "next";
-import { Suspense } from "react";
 // import { blogs } from "../../../../../public/assets/blog";
-import Loading from "../../loading";
 import { client } from "@/sanity/lib/client";
 import { BLOGS_QUERY } from "@/sanity/lib/queries";
 import HomePage from "@/app/sections/Blogs/home";
@@ -37,10 +35,8 @@ const BlogsPage = async () => {
       {/* najas nazar code  */}
       {/* <BlogsHero /> */}
 
-      <Suspense fallback={<Loading />}>
-        {/* <BlogsList blogsData={blogsData} /> */}
-        <HomePage posts={blogs} />
-      </Suspense>
+      {/* <BlogsList blogsData={blogsData} /> */}
+      <HomePage posts={blogs} />
     </main>
   );
 };

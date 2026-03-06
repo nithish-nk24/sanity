@@ -1,8 +1,6 @@
 // import PagePath from "@/components/page-path";
-import Loading from "./loading";
 // import BlogHero from "@/app/sections/Blog/BlogHero";
 import { Metadata } from "next";
-import { Suspense } from "react";
 // import { blogs } from "../../../../../public/assets/blog";
 import { client } from "@/sanity/lib/client";
 import { BLOG_BY_ID_QUERY } from "@/sanity/lib/queries";
@@ -60,10 +58,8 @@ const BlogPage = async ({ params }: Props) => {
   return (
     <main className="mt-28 mx-6 max-md:mx-3">
       {/* <PagePath param={blogData.title} route="Blogs" /> */}
-      <Suspense fallback={<Loading />}>
-        {/* <BlogHero blogData={blogData} /> */}
-        <PostPage post={blog} />
-      </Suspense>
+      {/* <BlogHero blogData={blogData} /> */}
+      <PostPage post={blog} />
     </main>
   );
 };

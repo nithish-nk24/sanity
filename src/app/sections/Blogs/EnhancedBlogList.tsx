@@ -223,12 +223,14 @@ const EnhancedBlogList = ({ posts, searchQuery }: EnhancedBlogListProps) => {
        </div>
 
              {/* Blog Posts Grid/List */}
-       <div className={
-         viewMode === "grid" 
-           ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" 
-           : "space-y-4"
-       }>
-        {filteredAndSortedPosts.map((post) => (
+      <div
+        className={
+          viewMode === "grid"
+            ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            : "space-y-4"
+        }
+      >
+        {filteredAndSortedPosts.map((post, index) => (
           <Card key={post._id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden">
             {/* Post Image */}
             <div className={`relative overflow-hidden ${
@@ -240,6 +242,9 @@ const EnhancedBlogList = ({ posts, searchQuery }: EnhancedBlogListProps) => {
                   alt={post.title}
                   fill
                   className="object-cover group-hover:scale-105 transition-transform duration-300"
+                  {...(index === 0
+                    ? { priority: true, fetchPriority: "high" as const }
+                    : {})}
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">

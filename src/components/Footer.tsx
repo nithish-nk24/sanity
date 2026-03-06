@@ -66,10 +66,10 @@ const Footer = () => {
 
           {/* Contact Information */}
           <div className="lg:col-span-1">
-            <h3 className="text-xl font-bold mb-6 text-foreground relative">
+            <h2 className="text-xl font-bold mb-6 text-foreground relative">
               GET IN TOUCH
               <div className="absolute -bottom-2 left-0 w-12 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
-            </h3>
+            </h2>
             
             {/* Email Subscription */}
             <div className="mb-6">
@@ -80,7 +80,10 @@ const Footer = () => {
                   placeholder="Enter your email" 
                   className="bg-muted border-border text-foreground placeholder-muted-foreground focus:border-primary focus:ring-primary rounded-r-none footer-input"
                 />
-                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-l-none px-4 transition-all duration-300 hover:scale-105">
+                <Button
+                  aria-label="Subscribe with email"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-l-none px-4 transition-all duration-300 hover:scale-105"
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
@@ -126,10 +129,10 @@ const Footer = () => {
 
           {/* About Section */}
           <div className="lg:col-span-1">
-            <h3 className="text-xl font-bold mb-6 text-foreground relative">
+            <h2 className="text-xl font-bold mb-6 text-foreground relative">
               ABOUT
               <div className="absolute -bottom-2 left-0 w-12 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
-            </h3>
+            </h2>
             <div className="space-y-3">
               {[
                 { title: "About Us", href: "/about" },
@@ -150,10 +153,10 @@ const Footer = () => {
 
           {/* Categories Section */}
           <div className="lg:col-span-1">
-            <h3 className="text-xl font-bold mb-6 text-foreground relative">
+            <h2 className="text-xl font-bold mb-6 text-foreground relative">
               CATEGORIES
               <div className="absolute -bottom-2 left-0 w-12 h-0.5 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"></div>
-            </h3>
+            </h2>
             <div className="space-y-3">
               {[
                 { title: "Web Development", href: "/courses/web-development" },
