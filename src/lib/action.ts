@@ -5,6 +5,7 @@ import { parseServerActionResponse } from "./utils";
 import slugify from "slugify";
 import { writeClient } from "@/sanity/lib/write-client";
 import { ExtendedSession } from "./types";
+import { requireAdminOrRedirect } from "@/lib/admin-guard";
 
 export const createBlog = async (
 //   state: any,
@@ -19,7 +20,7 @@ export const createBlog = async (
   },
   pitch: string
 ) => {
-  const session = await auth() as ExtendedSession;
+  const session = (await requireAdminOrRedirect("/")) as ExtendedSession;
   // console.log(session);
   
   if (!session)
@@ -78,12 +79,7 @@ export const createBlog = async (
 };
 
 export const deleteBlog = async(id:string)=>{
-  const session = await auth()
-  if (!session)
-    return parseServerActionResponse({
-      error: "Not signed in",
-      status: "ERROR",
-    });
+  await requireAdminOrRedirect("/");
 
     try {
       const result = await writeClient.delete(id)
@@ -114,7 +110,7 @@ export const updateBlog = async (
   },
   pitch: string
 ) => {
-  const session = await auth() as ExtendedSession;
+  const session = (await requireAdminOrRedirect("/")) as ExtendedSession;
   
   if (!session)
     return parseServerActionResponse({

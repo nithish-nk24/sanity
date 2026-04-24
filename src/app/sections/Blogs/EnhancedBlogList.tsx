@@ -1,14 +1,16 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Filter, Grid3X3, List, Clock, User, Eye, Share2 } from "lucide-react";
+import { Filter, Grid3X3, List, Clock, User, Share2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Image from "next/image";
 import Link from "next/link";
 import { parseISO, format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
 
 interface BlogPost {
   _id: string;
@@ -32,6 +34,7 @@ const EnhancedBlogList = ({ posts, searchQuery }: EnhancedBlogListProps) => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [sortBy, setSortBy] = useState<string>("latest");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const { toast } = useToast();
 
   // Share function using Web Share API
   const handleShare = async (post: BlogPost) => {
@@ -47,17 +50,21 @@ const EnhancedBlogList = ({ posts, searchQuery }: EnhancedBlogListProps) => {
       } else {
         // Fallback for browsers that don't support Web Share API
         await navigator.clipboard.writeText(shareData.url);
-        // You could add a toast notification here
-        alert('Link copied to clipboard!');
+        toast({ title: "Link copied", description: "Post URL copied to clipboard." });
       }
     } catch (error) {
       console.error('Error sharing:', error);
       // Fallback to copying URL
       try {
         await navigator.clipboard.writeText(shareData.url);
-        alert('Link copied to clipboard!');
+        toast({ title: "Link copied", description: "Post URL copied to clipboard." });
       } catch (clipboardError) {
         console.error('Error copying to clipboard:', clipboardError);
+        toast({
+          variant: "destructive",
+          title: "Copy failed",
+          description: "Could not copy the link. Please try again.",
+        });
       }
     }
   };
@@ -226,122 +233,151 @@ const EnhancedBlogList = ({ posts, searchQuery }: EnhancedBlogListProps) => {
       <div
         className={
           viewMode === "grid"
-            ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-            : "space-y-4"
+            ? "grid gap-5 md:grid-cols-2 lg:grid-cols-3"
+            : "space-y-5"
         }
       >
-        {filteredAndSortedPosts.map((post, index) => (
-          <Card key={post._id} className="group hover:shadow-xl transition-all duration-300 overflow-hidden">
-            {/* Post Image */}
-            <div className={`relative overflow-hidden ${
-              viewMode === "grid" ? "aspect-video" : "aspect-[16/9]"
-            }`}>
-              {post.image ? (
-                <Image
-                  src={post.image}
-                  alt={post.title}
-                  fill
-                  sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  {...(index === 0
-                    ? { priority: true, fetchPriority: "high" as const }
-                    : {})}
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
-                  <div className="text-center">
-                    <div className="w-16 h-16 mx-auto mb-2 bg-gray-300 rounded-full flex items-center justify-center">
-                      <Filter className="h-8 w-8 text-gray-500" />
-                    </div>
-                    <p className="text-sm text-gray-500">No Image</p>
-                  </div>
-                </div>
-              )}
-              
-              {/* Category Badge */}
-                                   <div className="absolute top-3 left-3">
-                       <Badge variant="secondary" className="bg-white/90 text-gray-800 hover:bg-white">
-                         {Array.isArray(post.category) ? post.category[0] : post.category || "Tech"}
-                       </Badge>
-                     </div>
+        {filteredAndSortedPosts.map((post, index) => {
+          const primaryCategory = Array.isArray(post.category)
+            ? post.category[0]
+            : (post.category as unknown as string) || "Tech";
+          const extraCategories = Array.isArray(post.category)
+            ? post.category.slice(1)
+            : [];
+          const href = `/blog/${post._id}`;
 
-              {/* Action Buttons */}
-              <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    variant="secondary" 
-                    className="h-8 w-8 p-0 bg-white/90 hover:bg-white"
+          return (
+            <Card
+              key={post._id}
+              className={cn(
+                "group overflow-hidden border-border/60 bg-card/60 backdrop-blur supports-[backdrop-filter]:bg-card/40",
+                "hover:shadow-2xl hover:-translate-y-0.5 transition-all duration-300",
+                viewMode === "list" && "sm:flex"
+              )}
+            >
+              {/* Media */}
+              <div
+                className={cn(
+                  "relative overflow-hidden",
+                  viewMode === "grid" ? "aspect-[16/10]" : "aspect-[16/10] sm:w-[44%] sm:aspect-auto"
+                )}
+              >
+                <Link href={href} className="absolute inset-0" aria-label={post.title}>
+                  {post.image ? (
+                    <Image
+                      src={post.image}
+                      alt={post.title}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                      className="object-cover group-hover:scale-[1.04] transition-transform duration-500"
+                      {...(index === 0 ? { priority: true, fetchPriority: "high" as const } : {})}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-muted to-muted/50 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="w-14 h-14 mx-auto mb-2 bg-background/70 rounded-full flex items-center justify-center border border-border">
+                          <Filter className="h-7 w-7 text-muted-foreground" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">No image</p>
+                      </div>
+                    </div>
+                  )}
+                  {/* subtle gradient for text legibility */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent opacity-70" />
+                </Link>
+
+                {/* Category */}
+                <div className="absolute top-3 left-3 z-10">
+                  <Badge className="bg-white/90 text-gray-900 hover:bg-white dark:bg-black/60 dark:text-white">
+                    {primaryCategory}
+                  </Badge>
+                </div>
+
+                {/* Share */}
+                <div className="absolute top-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-9 w-9 p-0 bg-white/90 hover:bg-white dark:bg-black/60 dark:hover:bg-black/70"
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       handleShare(post);
                     }}
                     title="Share this post"
+                    aria-label="Share"
                   >
                     <Share2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
-            </div>
 
-                         {/* Post Content */}
-             <CardContent className="p-4">
-                             <h3 className={`font-bold text-foreground mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors ${
-                 viewMode === "grid" ? "text-lg" : "text-xl"
-               }`}>
-                 <Link href={`/blog/${post._id}`}>
-                   {post.title}
-                 </Link>
-               </h3>
-              
-                             {post.excerpt && (
-                 <p className={`text-muted-foreground mb-4 line-clamp-3 ${
-                   viewMode === "list" ? "text-base" : "text-sm"
-                 }`}>
-                   {post.excerpt}
-                 </p>
-               )}
-              
-                             {/* Post Meta */}
-               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                 <div className="flex items-center gap-3">
-                   <div className="flex items-center gap-1">
-                     <User className="h-4 w-4" />
-                     <span className="truncate max-w-24">{post.author?.name || "Anonymous"}</span>
-                   </div>
-                   <div className="flex items-center gap-1">
-                     <Clock className="h-4 w-4" />
-                     <time dateTime={post._createdAt}>
-                       {format(parseISO(post._createdAt), "MMM dd, yyyy")}
-                     </time>
-                   </div>
-                 </div>
-                 
-                 {viewMode === "list" && (
-                   <div className="flex items-center gap-1 text-muted-foreground">
-                     <Eye className="h-4 w-4" />
-                     <span className="text-xs">1.2k views</span>
-                   </div>
-                 )}
-               </div>
+              {/* Content */}
+              <CardContent className={cn("p-5", viewMode === "list" && "sm:flex-1")}>
+                <div className="space-y-3">
+                  <h3
+                    className={cn(
+                      "font-bold tracking-tight text-foreground group-hover:text-blue-600 transition-colors",
+                      viewMode === "grid" ? "text-lg" : "text-xl"
+                    )}
+                  >
+                    <Link href={href} className="line-clamp-2">
+                      {post.title}
+                    </Link>
+                  </h3>
 
-                             {/* Categories */}
-               {(() => {
-                 const postCategories = Array.isArray(post.category) ? post.category : [post.category].filter(Boolean);
-                 return postCategories.length > 1 ? (
-                   <div className="flex flex-wrap gap-2 mt-4">
-                     {postCategories.slice(1).map((cat, index) => (
-                       <Badge key={index} variant="outline" className="text-xs">
-                         {cat}
-                       </Badge>
-                     ))}
-                   </div>
-                 ) : null;
-               })()}
-            </CardContent>
-          </Card>
-        ))}
+                  {post.excerpt && (
+                    <p
+                      className={cn(
+                        "text-muted-foreground leading-6",
+                        viewMode === "list" ? "text-base line-clamp-3" : "text-sm line-clamp-3"
+                      )}
+                    >
+                      {post.excerpt}
+                    </p>
+                  )}
+
+                  {/* Meta row */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      {post.author?.image ? (
+                        <div className="relative h-6 w-6 overflow-hidden rounded-full border border-border/60">
+                          <Image
+                            src={post.author.image}
+                            alt={post.author.name || "Author"}
+                            fill
+                            sizes="24px"
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <User className="h-4 w-4" />
+                      )}
+                      <span className="truncate max-w-40">{post.author?.name || "Anonymous"}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="h-4 w-4" />
+                      <time dateTime={post._createdAt}>
+                        {format(parseISO(post._createdAt), "MMM dd, yyyy")}
+                      </time>
+                    </div>
+                  </div>
+
+                  {/* Extra categories */}
+                  {extraCategories.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {extraCategories.slice(0, 3).map((cat, i) => (
+                        <Badge key={`${cat}-${i}`} variant="outline" className="text-xs">
+                          {cat}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
              {/* Load More Button */}

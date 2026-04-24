@@ -71,7 +71,7 @@ export default function PostList({
               "mt-2 dark:text-white"
             )}
           >
-            <Link href={`#`}>
+            <Link href={`/blog/${post._id}`}>
               <span className="bg-gradient-to-r from-green-200 to-green-100 bg-[length:0px_10px] bg-left-bottom bg-no-repeat transition-[background-size] duration-500 hover:bg-[length:100%_3px] group-hover:bg-[length:100%_10px] dark:from-purple-800 dark:to-purple-900">
                 {post.title}
               </span>
@@ -80,14 +80,14 @@ export default function PostList({
 
           {post.excerpt && (
             <p className="mt-2 line-clamp-3 text-sm text-gray-500 dark:text-gray-400">
-              <Link href={`#`}>{post.excerpt}</Link>
+              <Link href={`/blog/${post._id}`}>{post.excerpt}</Link>
             </p>
           )}
 
           {/* Author Info */}
           <div className="mt-3 flex items-center space-x-3 text-gray-500 dark:text-gray-400">
             {post?.author?.name && (
-              <Link href={`#`} className="flex items-center gap-3">
+              <Link href="#" className="flex items-center gap-3" aria-label={`Author: ${post?.author?.name}`}>
                 <div className="relative h-5 w-5 flex-shrink-0">
                   {authorImageSrc && (
                     <Image

@@ -19,6 +19,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       slug === "all"
         ? "All Blogs - Cyfotok Academy"
         : `Blog | Reading - Cyfotok Academy`,
+    description:
+      slug === "all"
+        ? "Browse all published blog posts from Cyfotok Academy."
+        : "Read blog posts from Cyfotok Academy.",
+    alternates: {
+      canonical: slug === "all" ? "/blogs/all" : `/blogs/${slug}`,
+    },
   };
 }
 const BlogsPage = async () => {

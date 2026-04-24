@@ -31,11 +31,9 @@ export default function AuthorCard({ author }) {
             {author.bio && <PortableText value={author.bio} />}
           </div>
           <div className="mt-3">
-            <Link
-              href={`#`}
-              className="bg-brand-secondary/20 rounded-full py-2 text-sm text-blue-600 dark:text-blue-500 ">
-              View Profile
-            </Link>
+            <span className="inline-flex bg-brand-secondary/20 rounded-full px-4 py-2 text-sm text-blue-600 dark:text-blue-500">
+              Author
+            </span>
           </div>
         </div>
       </div>

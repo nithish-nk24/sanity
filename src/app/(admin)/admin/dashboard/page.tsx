@@ -1,4 +1,4 @@
-import { auth } from "@/auth";
+import { requireAdminOrRedirect } from "@/lib/admin-guard";
 import { AppSidebar } from "@/components/app-sidebar";
 import {
   Breadcrumb,
@@ -18,7 +18,6 @@ import { deleteBlog } from "@/lib/action";
 import { client } from "@/sanity/lib/client";
 import { ADMIN_BLOGS_QUERY } from "@/sanity/lib/queries";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { 
   DashboardStats, 
   BlogManagement, 
@@ -49,8 +48,7 @@ type blogTypeProp = {
 }[]
 
 export default async function Page() {
-  const session = await auth();
-  if (!session) redirect("/");
+  const session = await requireAdminOrRedirect("/");
 
   const blogs: blogTypeProp = await client.fetch(ADMIN_BLOGS_QUERY);
 

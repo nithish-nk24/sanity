@@ -8,6 +8,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/ui/code-block";
 import React from "react";
+import { ArrowLeft, CalendarDays, Timer } from "lucide-react";
 const md = markdownit();
 export default function Post(props) {
   const { loading, post } = props;
@@ -22,60 +23,86 @@ export default function Post(props) {
   const imageProps = post?.image;
   const AuthorimageProps = post?.author?.image;
   const parsedContent = md.render(post?.pitch);
+  const wordCount = post?.pitch ? String(post.pitch).trim().split(/\s+/).filter(Boolean).length : 0;
+  const readingTime = Math.max(wordCount > 0 ? 1 : 0, Math.ceil(wordCount / 200));
 
   return (
     <>
-      {/* Header Section */}
-      <div className="mx-auto max-w-4xl px-6 md:px-8 lg:px-12 pt-8 pb-6">
-        <div className="flex justify-center mb-4">
-          <CategoryLabel categories={post.category} />
-        </div>
+      {/* Shell */}
+      <div className="relative">
+        {/* background */}
+        <div className="absolute inset-x-0 top-0 h-[420px] bg-gradient-to-b from-blue-50 via-purple-50 to-transparent dark:from-blue-950/30 dark:via-purple-950/30 pointer-events-none" />
 
-        <h1 className="text-brand-primary mb-4 mt-2 text-center text-3xl font-bold tracking-tight dark:text-white lg:text-5xl lg:leading-tight break-words hyphens-none">
-          {post.title}
-        </h1>
+        {/* Header Section */}
+        <header className="mx-auto max-w-5xl px-6 md:px-8 lg:px-12 pt-10 pb-6 relative">
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href="/blogs/all"
+              className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to blogs
+            </Link>
+          </div>
 
-        <div className="mt-6 flex justify-center">
-          <div className="flex items-center gap-4">
-            <div className="relative h-12 w-12 flex-shrink-0">
-              {AuthorimageProps && (
-                <Link href={"#"}>
+          <div className="mt-6 flex justify-center">
+            <CategoryLabel categories={post.category} />
+          </div>
+
+          <h1 className="mt-4 text-center text-3xl font-extrabold tracking-tight text-foreground lg:text-5xl lg:leading-tight break-words hyphens-none">
+            {post.title}
+          </h1>
+
+          {post?.description && (
+            <p className="mx-auto mt-4 max-w-3xl text-center text-base md:text-lg text-muted-foreground leading-relaxed">
+              {post.description}
+            </p>
+          )}
+
+          <div className="mt-7 flex flex-col items-center gap-4">
+            <div className="flex items-center gap-4">
+              <div className="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-full border border-border/60 bg-muted">
+                {AuthorimageProps ? (
                   <Image
                     src={AuthorimageProps}
                     alt={post?.author?.name}
-                    className="rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
+                    className="object-cover"
                     fill
                     sizes="48px"
                   />
-                </Link>
-              )}
-            </div>
-            <div>
-              <p className="text-gray-800 dark:text-gray-300 font-medium">
+                ) : null}
+              </div>
+              <div className="text-center sm:text-left">
                 {post?.author?.name && (
-                  <Link href={`#`} className="hover:underline">{post.author.name}</Link>
+                  <p className="text-sm font-semibold text-foreground">{post.author.name}</p>
                 )}
-              </p>
-              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-                <time
-                  dateTime={post?.publishedAt || post._createdAt}
-                >
-                  {format(
-                    parseISO(post?.publishedAt || post._createdAt),
-                    "MMMM dd, yyyy"
+                <div className="mt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <CalendarDays className="h-4 w-4" />
+                    <time dateTime={post?.publishedAt || post._createdAt}>
+                      {format(
+                        parseISO(post?.publishedAt || post._createdAt),
+                        "MMMM dd, yyyy"
+                      )}
+                    </time>
+                  </span>
+                  {readingTime > 0 && (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Timer className="h-4 w-4" />
+                      {readingTime} min read
+                    </span>
                   )}
-                </time>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </div>
+        </header>
 
-      {/* Content Section */}
-      <article className="max-w-4xl mx-auto px-6 md:px-8 lg:px-12 pb-16">
+        {/* Content Section */}
+        <article className="max-w-5xl mx-auto px-6 md:px-8 lg:px-12 pb-20 relative">
         {/* Image Section */}
         {imageProps && (
-          <div className="relative mx-auto aspect-video max-w-4xl overflow-hidden rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 mb-12 transition-transform duration-300 hover:scale-[1.01]">
+          <div className="relative mx-auto aspect-video max-w-5xl overflow-hidden rounded-3xl shadow-2xl border border-border/60 mb-12">
             <Image
               src={imageProps}
               alt={post.image?.alt || "Thumbnail"}
@@ -88,7 +115,7 @@ export default function Post(props) {
         )}
 
         {/* Markdown Content */}
-        <div className="prose prose-lg dark:prose-invert max-w-none prose-headings:font-bold prose-p:leading-7 prose-a:font-medium">
+        <div className="prose prose-lg md:prose-xl dark:prose-invert max-w-none prose-headings:font-bold prose-p:leading-7 prose-a:font-medium prose-a:underline prose-a:underline-offset-4 prose-a:decoration-blue-300 dark:prose-a:decoration-blue-500 prose-hr:border-border/60">
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
             components={{
@@ -99,57 +126,32 @@ export default function Post(props) {
               <h2 className="text-3xl font-semibold mt-10 mb-5 break-words hyphens-none text-gray-900 dark:text-gray-100 leading-tight border-b border-gray-200 dark:border-gray-800 pb-2" {...props} />
             ),
             p: ({ node, children, ...props }) => {
-              // Check if the paragraph contains a pre element (which contains code blocks)
               const childrenArray = React.Children.toArray(children);
-              const hasPreElement = childrenArray.some(
-                child => React.isValidElement(child) && child.type === 'pre'
-              );
-              
-              // If it contains a pre element, don't wrap it in a p tag
-              if (hasPreElement) {
-                return <>{children}</>;
-              }
-              
-              // Check if the paragraph contains only a code block (CodeBlock component)
-              const hasOnlyCodeBlock = childrenArray.some(
-                child => React.isValidElement(child) && child.type?.name === 'CodeBlock'
-              );
-              
-              if (hasOnlyCodeBlock) {
-                // If it's just a code block, don't wrap it in a p tag
-                return <>{children}</>;
-              }
-              
+
+              // If the paragraph contains a fenced-code node that we're rendering as CodeBlock,
+              // don't wrap it in <p> (prevents invalid <p><code><div> nesting).
+              const hasBlockCode = childrenArray.some((child) => {
+                if (!React.isValidElement(child)) return false;
+                if (child.type !== "code") return false;
+                const cls = child.props?.className;
+                // fenced code blocks carry a language- className in react-markdown
+                return typeof cls === "string" && cls.includes("language-");
+              });
+
+              if (hasBlockCode) return <>{children}</>;
+
               return (
-                <p className="text-gray-700 dark:text-gray-300 my-6 leading-7 break-words hyphens-none text-base" {...props}>
+                <p
+                  className="text-gray-700 dark:text-gray-300 my-6 leading-7 break-words hyphens-none text-base"
+                  {...props}
+                >
                   {children}
                 </p>
               );
             },
-            pre: ({ node, children, ...props }) => {
-              // Extract code element from pre
-              const codeElement = React.Children.toArray(children).find(
-                child => React.isValidElement(child) && child.type === 'code'
-              );
-              
-              if (codeElement) {
-                // Get the code element's props
-                const codeProps = codeElement.props;
-                const className = codeProps.className || '';
-                const match = /language-(\w+)/.exec(className);
-                const language = match ? match[1] : '';
-                
-                // Return CodeBlock directly instead of wrapping in pre
-                return (
-                  <CodeBlock language={language}>
-                    {String(codeProps.children).replace(/\n$/, '')}
-                  </CodeBlock>
-                );
-              }
-              
-              // Fallback to default pre rendering
-              return <pre {...props}>{children}</pre>;
-            },
+            // Unwrap <pre> so block code isn't forced inside it.
+            // We render fenced blocks in the `code` renderer instead.
+            pre: ({ node, children }) => <>{children}</>,
             h3: ({ node, children, ...props }) => {
               // Check if heading contains emoji (like 🔎) for special styling
               const headingText = typeof children === 'string' ? children : 
@@ -252,9 +254,12 @@ export default function Post(props) {
               );
             },
             code: ({ node, inline, className, children, ...props }) => {
-              // Only handle inline code here
-              // Block code is handled by the pre component
-              if (inline) {
+              const text = String(children ?? "");
+              const hasFenceLanguage = typeof className === "string" && className.includes("language-");
+              const looksLikeBlock = hasFenceLanguage || text.includes("\n");
+
+              // Inline-ish code (even if react-markdown marks it as non-inline in some malformed markdown cases)
+              if (inline || !looksLikeBlock) {
                 return (
                   <code
                     className="bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded text-sm font-mono text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700"
@@ -264,9 +269,12 @@ export default function Post(props) {
                   </code>
                 );
               }
-              
-              // For block code, return the code element as-is (will be handled by pre component)
-              return <code className={className} {...props}>{children}</code>;
+
+              // Fenced code blocks
+              const match = /language-([\w-]+)/.exec(className || "");
+              const language = match ? match[1] : "";
+              const codeText = text.replace(/\n$/, "");
+              return <CodeBlock language={language}>{codeText}</CodeBlock>;
             },
             table: ({ node, ...props }) => (
               <div className="my-8 overflow-x-auto">
@@ -295,15 +303,17 @@ export default function Post(props) {
         </div>
 
         {/* Back Button */}
-        <div className="mt-16 pt-8 border-t border-gray-200 dark:border-gray-800 text-center">
+        <div className="mt-16 pt-10 border-t border-border/60 text-center">
           <Link
-            href="/"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-8 py-3 rounded-lg text-base font-semibold shadow-lg hover:bg-blue-700 hover:shadow-xl transition-all duration-200"
+            href="/blogs/all"
+            className="inline-flex items-center gap-2 bg-foreground text-background px-7 py-3 rounded-full text-sm md:text-base font-semibold shadow-lg hover:opacity-90 transition-all duration-200"
           >
-            ← Back to Posts
+            <ArrowLeft className="h-4 w-4" />
+            Back to blogs
           </Link>
         </div>
       </article>
+      </div>
     </>
   );
 }

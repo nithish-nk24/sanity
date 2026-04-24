@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
 import { writeClient } from '@/sanity/lib/write-client';
+import { requireAdminOr401 } from '@/lib/admin-guard';
 
 export async function PATCH(request: NextRequest) {
   try {
-    // Check authentication
-    const session = await auth();
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const authResult = await requireAdminOr401();
+    if (!authResult.ok) return authResult.response;
 
     // Parse request body
     const { id, published } = await request.json();

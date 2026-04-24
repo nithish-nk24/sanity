@@ -16,35 +16,43 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const blog = await client.fetch(BLOG_BY_ID_QUERY, { id });
 
   //SEO
-  const metaTitle = blog?.metaTitle || `${blog?.title} - Cyfotok Academy`
+  const metaTitle = blog?.metaTitle || `${blog?.title} - Cyfotok Academy`;
   const metaDesc = blog?.metaDescription || blog?.description || "Read insightful articles on Cyfotok Academy.";
   const metaKeywords = blog?.metaKeywords ||  "cyfotok, academy, blog, programming, tutorials";
-  const imageUrl = blog?.image
+  const imageUrl = blog?.image;
+  const canonical = `/blog/${id}`;
   // console.log(slug);
 
   return {
     title: metaTitle,
-    description:metaDesc,
-    keywords:metaKeywords,
-    openGraph:{
-      title:metaTitle,
-      description:metaDesc,
-      url:`https://cyfotok.com/blog/${id}`,
-      images:[
-        {
-          url:imageUrl,
-          width:1200,
-          height:630,
-          alt:blog?.title
-        },
-      ],
-      type:'article'
+    description: metaDesc,
+    keywords: metaKeywords,
+    alternates: {
+      canonical,
+    },
+    openGraph: {
+      title: metaTitle,
+      description: metaDesc,
+      url: canonical,
+      ...(imageUrl
+        ? {
+            images: [
+              {
+                url: imageUrl,
+                width: 1200,
+                height: 630,
+                alt: blog?.title,
+              },
+            ],
+          }
+        : {}),
+      type: "article",
     },
     twitter: {
       card: "summary_large_image",
       title: metaTitle,
       description: metaDesc,
-      images: [imageUrl],
+      ...(imageUrl ? { images: [imageUrl] } : {}),
       creator: "@cyfotok",
     }
   };

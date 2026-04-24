@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { authenticateUser } from "@/lib/auth-utils";
+import { checkRateLimit } from "@/lib/auth-utils";
 
 // Extend the User type to include custom properties
 interface ExtendedUser {
@@ -24,26 +25,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" }
       },
-      async authorize(credentials): Promise<ExtendedUser | null> {
+      async authorize(credentials, request): Promise<ExtendedUser | null> {
         if (!credentials?.username || !credentials?.password) {
-          console.log('❌ Missing credentials in authorize callback');
           return null;
         }
         
         try {
-          console.log('🔐 Attempting to authenticate user:', credentials.username);
+          // Rate limit by IP + username (best effort behind proxies)
+          const forwardedFor = request?.headers?.get("x-forwarded-for");
+          const ip = forwardedFor ? forwardedFor.split(",")[0]?.trim() : request?.headers?.get("x-real-ip") || "unknown";
+          const identifier = `${ip}:${credentials.username}`;
+          const allowed = await checkRateLimit(identifier);
+          if (!allowed) return null;
           
           // Use our custom authentication system
           const authResult = await authenticateUser(credentials.username, credentials.password);
           
-          console.log('📊 Authentication result:', {
-            success: authResult?.success,
-            error: authResult?.error || 'No error message',
-            hasUser: !!authResult?.user
-          });
-          
           if (authResult?.success && authResult.user) {
-            console.log('✅ User authenticated successfully:', authResult.user.username);
             return {
               id: authResult.user._id,
               name: authResult.user.name,
@@ -53,14 +51,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               permissions: authResult.user.permissions
             };
           } else {
-            console.log('❌ Authentication failed:', authResult?.error || 'Unknown error');
             return null;
           }
         } catch (error) {
-          console.error('💥 Error in authorize callback:', error);
-          if (error instanceof Error) {
-            console.error('   Stack:', error.stack);
-          }
           return null;
         }
       }
@@ -75,6 +68,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // Only handle credentials provider now
       if (account?.provider === 'credentials') {
         // Credentials provider - user is already authenticated
+        // Enforce admin-only sign-in for the admin panel
+        const u = user as ExtendedUser;
+        if (u?.role !== "admin") return false;
         return true;
       }
       return false;

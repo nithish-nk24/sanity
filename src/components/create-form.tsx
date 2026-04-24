@@ -13,7 +13,7 @@ import { Label } from "./admin-components/label";
 import { Textarea } from "./ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import MDEditor from "@uiw/react-md-editor";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { createBlog, updateBlog } from "@/lib/action";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
@@ -41,7 +41,12 @@ import {
   Trash2,
   Clipboard,
   Search,
-  HelpCircle
+  HelpCircle,
+  Copy,
+  Download,
+  RotateCcw,
+  BarChart3,
+  Loader2
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -60,6 +65,10 @@ export function CreateForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
   const [editorMode, setEditorMode] = useState<"edit" | "preview" | "live">("edit");
+  const [showDetailedStats, setShowDetailedStats] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [savedTick, setSavedTick] = useState(0); // forces "X sec ago" to update
   const [formData, setFormData] = useState({
     title: "",
     metaTitle: "",
@@ -71,6 +80,290 @@ export function CreateForm({
   });
   const { toast } = useToast();
   const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
+  const draftRestoredRef = useRef(false);
+
+  // Unique draft key per edit-mode/new-post context
+  const DRAFT_KEY = useMemo(
+    () => (isEditMode && blogId ? `blog-draft:edit:${blogId}` : "blog-draft:new"),
+    [isEditMode, blogId]
+  );
+
+  // Rich, memoized content statistics (no more recomputing on every render)
+  const stats = useMemo(() => {
+    const text = pitch || "";
+    const trimmed = text.trim();
+    const words = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
+    const characters = text.length;
+    const charactersNoSpaces = text.replace(/\s/g, "").length;
+    const lines = text ? text.split("\n").length : 0;
+    const paragraphs = trimmed
+      ? trimmed.split(/\n\s*\n/).filter((p) => p.trim()).length
+      : 0;
+    const sentences = trimmed
+      ? trimmed.split(/[.!?]+(?:\s|$)/).filter((s) => s.trim()).length
+      : 0;
+    const headings = (text.match(/^#{1,6}\s+/gm) || []).length;
+    const codeBlocks = (text.match(/```[\s\S]*?```/g) || []).length;
+    const links = (text.match(/\[[^\]]+\]\([^)]+\)/g) || []).length;
+    const images = (text.match(/!\[[^\]]*\]\([^)]+\)/g) || []).length;
+    const readingTime = Math.max(words > 0 ? 1 : 0, Math.ceil(words / 200));
+    // Quality score: primarily driven by word count, but rewards structure
+    let quality: "empty" | "short" | "good" | "excellent" = "empty";
+    if (words === 0) quality = "empty";
+    else if (words < 150) quality = "short";
+    else if (words < 600) quality = "good";
+    else quality = "excellent";
+    return {
+      words,
+      characters,
+      charactersNoSpaces,
+      lines,
+      paragraphs,
+      sentences,
+      headings,
+      codeBlocks,
+      links,
+      images,
+      readingTime,
+      quality,
+    };
+  }, [pitch]);
+
+  // Restore draft on mount (skip in edit mode — server content takes precedence)
+  useEffect(() => {
+    if (isEditMode) return;
+    if (draftRestoredRef.current) return;
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        pitch?: string;
+        formData?: typeof formData;
+        savedAt?: number;
+      };
+      const hasContent =
+        (parsed.pitch && parsed.pitch.trim().length > 0) ||
+        (parsed.formData &&
+          Object.values(parsed.formData).some((v) => typeof v === "string" && v.trim()));
+      if (!hasContent) return;
+      if (parsed.pitch) setPitch(parsed.pitch);
+      if (parsed.formData) setFormData((prev) => ({ ...prev, ...parsed.formData }));
+      if (parsed.savedAt) setLastSavedAt(parsed.savedAt);
+      draftRestoredRef.current = true;
+      toast({
+        title: "Draft restored",
+        description: "We recovered your previous unsaved work from this browser.",
+      });
+    } catch {
+      // Ignore malformed draft
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [DRAFT_KEY, isEditMode]);
+
+  // Debounced auto-save to localStorage
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Don't persist an empty slate
+    const hasAnything =
+      (pitch && pitch.trim().length > 0) ||
+      Object.values(formData).some((v) => typeof v === "string" && v.trim().length > 0);
+    if (!hasAnything) return;
+
+    setIsSavingDraft(true);
+    const t = setTimeout(() => {
+      try {
+        const now = Date.now();
+        window.localStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({ pitch, formData, savedAt: now })
+        );
+        setLastSavedAt(now);
+      } catch {
+        // Quota exceeded or storage disabled — surface softly
+      } finally {
+        setIsSavingDraft(false);
+      }
+    }, 800);
+    return () => clearTimeout(t);
+  }, [pitch, formData, DRAFT_KEY]);
+
+  // Tick every 20s so "Saved Xs ago" stays fresh
+  useEffect(() => {
+    const id = setInterval(() => setSavedTick((x) => x + 1), 20_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Human-readable save status
+  const saveStatusLabel = useMemo(() => {
+    if (isSavingDraft) return "Saving draft…";
+    if (!lastSavedAt) return "Not saved yet";
+    const diffSec = Math.max(0, Math.floor((Date.now() - lastSavedAt) / 1000));
+    if (diffSec < 5) return "Draft saved";
+    if (diffSec < 60) return `Saved ${diffSec}s ago`;
+    const mins = Math.floor(diffSec / 60);
+    if (mins < 60) return `Saved ${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    return `Saved ${hrs}h ago`;
+    // savedTick is intentionally in deps to refresh the label periodically
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSavingDraft, lastSavedAt, savedTick]);
+
+  // Ctrl/Cmd+S to submit
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const isSave = (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s";
+      if (!isSave) return;
+      e.preventDefault();
+      formRef.current?.requestSubmit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Toolbar action helpers
+  const copyMarkdown = useCallback(async () => {
+    if (!pitch) {
+      toast({ variant: "destructive", title: "Nothing to copy", description: "The editor is empty." });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(pitch);
+      toast({ title: "Copied", description: "Markdown copied to clipboard." });
+    } catch {
+      toast({ variant: "destructive", title: "Copy failed", description: "Clipboard access was blocked." });
+    }
+  }, [pitch, toast]);
+
+  const downloadMarkdown = useCallback(() => {
+    if (!pitch) {
+      toast({ variant: "destructive", title: "Nothing to download", description: "The editor is empty." });
+      return;
+    }
+    const slug = (formData.title || "untitled-post")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "")
+      .slice(0, 60) || "untitled-post";
+    const blob = new Blob([pitch], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${slug}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [pitch, formData.title, toast]);
+
+  const insertAtEnd = useCallback((snippet: string) => {
+    setPitch((prev) => (prev ? `${prev}\n\n${snippet}` : snippet));
+  }, []);
+
+  // Normalize common fence mistakes: users often type ''' instead of ```
+  const normalizeMarkdown = useCallback((input: string) => {
+    if (!input) return "";
+    // Replace fence lines made of apostrophes with backticks
+    // Examples: '''js -> ```js, ''' -> ```
+    return input.replace(/(^|\n)'''/g, "$1```");
+  }, []);
+
+  const clearDraftStorage = useCallback(() => {
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.removeItem(DRAFT_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  }, [DRAFT_KEY]);
+
+  const pasteReadyMarkdownTemplate = useMemo(
+    () => `# Your Blog Title
+
+## Introduction
+Start with a 2–4 sentence hook. State the problem and what the reader will learn.
+
+## Key takeaways
+- Bullet points are easy to scan
+- Keep them short and specific
+- Use **bold** for emphasis
+
+## Main section (use headings)
+Write in short paragraphs (2–3 sentences). Use headings for structure.
+
+### Add a code example
+\`\`\`ts
+type Example = {
+  name: string;
+};
+\`\`\`
+
+### Add a quote / note
+> **Note:** Use blockquotes for tips, warnings, or important callouts.
+
+### Add a link
+Use: [link text](https://example.com)
+
+### Add an image
+Use: ![Alt text](https://example.com/image.png)
+
+## Conclusion
+Summarize the main points and end with a clear next step or call-to-action.`,
+    []
+  );
+
+  const copyPasteFormat = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(pasteReadyMarkdownTemplate);
+      toast({ title: "Copied", description: "Paste-ready Markdown format copied." });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Copy failed",
+        description: "Clipboard access was blocked.",
+      });
+    }
+  }, [pasteReadyMarkdownTemplate, toast]);
+
+  const chatgptPastePrompt = useMemo(() => {
+    const categoryHint = formData.category?.trim() ? formData.category.trim() : "Web Development";
+    const titleHint = formData.title?.trim() ? formData.title.trim() : "YOUR BLOG TITLE";
+    return `You are writing content for a blog CMS.
+
+Return EXACTLY in the following field-labeled format (no extra commentary before/after). Use plain text for the metadata fields and Markdown only for the Pitch field.
+
+Formatting rules:
+- Do NOT wrap the entire response in a code block.
+- Do NOT use smart quotes. Use normal "quotes".
+- Use proper Markdown: headings start with #, ##, ###; blank line between sections; lists use - or 1.; links use [text](url); images use ![alt](url).
+- In code blocks, ALWAYS use triple backticks and include a language, like \`\`\`ts.
+
+Now write a high-quality blog post about: <PASTE TOPIC HERE>
+
+Title: ${titleHint}
+Meta Title: (max 60 characters, compelling, includes main keyword)
+Image: (optional full https URL)
+Meta Keywords: (comma-separated keywords)
+Category: ${categoryHint}
+Meta Description: (max 155 characters)
+Description: (1–2 sentence summary shown on the blog card)
+Pitch: (FULL blog post in Markdown starting with an H1 '# ...' and including an introduction, key takeaways list, 2–5 sections with H2/H3, at least 1 code block if relevant, and a conclusion)`;
+  }, [formData.category, formData.title]);
+
+  const copyChatgptPrompt = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(chatgptPastePrompt);
+      toast({ title: "Prompt copied", description: "Paste it into ChatGPT, then paste the result here." });
+    } catch {
+      toast({
+        variant: "destructive",
+        title: "Copy failed",
+        description: "Clipboard access was blocked.",
+      });
+    }
+  }, [chatgptPastePrompt, toast]);
 
   // Fetch blog data when editing
   useEffect(() => {
@@ -161,7 +454,7 @@ export function CreateForm({
     if (parsed.category) newFormData.category = parsed.category;
     if (parsed.metaDescription) newFormData.metaDescription = parsed.metaDescription;
     if (parsed.description) newFormData.description = parsed.description;
-    if (parsed.pitch) setPitch(parsed.pitch);
+    if (parsed.pitch) setPitch(normalizeMarkdown(parsed.pitch));
 
     setFormData(newFormData);
     setIsModalOpen(false);
@@ -234,6 +527,7 @@ export function CreateForm({
       }
 
       if (result.status === "SUCCESS") {
+        clearDraftStorage();
         if (isEditMode) {
           toast({
             title: "🎉 Blog Updated Successfully!",
@@ -334,6 +628,17 @@ export function CreateForm({
                       type="button"
                       variant="ghost"
                       size="sm"
+                      onClick={copyChatgptPrompt}
+                      className="text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300"
+                      title="Copy a strict prompt that generates paste-ready Markdown + fields"
+                    >
+                      <Copy className="h-4 w-4 mr-1" />
+                      Copy Prompt
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => setChatgptContent("")}
                       className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                       disabled={!chatgptContent.trim()}
@@ -365,26 +670,9 @@ export function CreateForm({
                   id="chatgpt-content"
                   value={chatgptContent}
                   onChange={(e) => setChatgptContent(e.target.value)}
-                    placeholder={`🎯 Paste your ChatGPT content here...
+                    placeholder={`Paste the ChatGPT output here.
 
-Examples of supported formats:
-
-📝 Plain Text:
-"Write a blog post about React hooks with the title 'Mastering React Hooks' and include code examples."
-
-📋 JSON Format:
-{
-  "title": "React Hooks Guide",
-  "description": "Complete guide to React hooks",
-  "content": "# React Hooks\\n\\nYour content here...",
-  "category": "Web Development"
-}
-
-💬 Chat Format:
-User: Write a blog post about JavaScript promises
-Assistant: Here's a blog post about JavaScript promises...
-
-The AI will automatically detect the format and extract the relevant information!`}
+Tip: Click “Copy Prompt” above to generate a strict response format that auto-fills perfectly.`}
                     rows={16}
                     className="resize-none font-mono text-sm border-2 border-gray-200 dark:border-gray-700 focus:border-blue-500 dark:focus:border-blue-400 rounded-xl p-4 transition-colors"
                   />
@@ -555,7 +843,7 @@ This post covers the fundamentals of promises and their practical applications.`
                 </div>
 
         {/* Main Form */}
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
           <Tabs defaultValue="basic" className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-8">
               <TabsTrigger value="basic" className="flex items-center gap-2">
@@ -791,59 +1079,89 @@ This post covers the fundamentals of promises and their practical applications.`
                     Content Editor
                   </CardTitle>
                   <CardDescription>
-                    Write your blog content with our enhanced markdown editor
+                    Write your blog content with our enhanced markdown editor. Press{" "}
+                    <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">Ctrl</kbd>
+                    {" "}+{" "}
+                    <kbd className="px-1.5 py-0.5 bg-muted rounded text-xs font-mono">S</kbd>{" "}
+                    to {isEditMode ? "update" : "publish"} at any time.
                   </CardDescription>
-                  
-                  {/* Enhanced Editor Controls */}
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant={editorMode === "edit" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setEditorMode("edit")}
-                        className="flex items-center gap-2"
-                      >
-                        <Edit3 className="h-4 w-4" />
-                        Edit Mode
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={editorMode === "preview" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setEditorMode("preview")}
-                        className="flex items-center gap-2"
-                      >
-                        <Eye className="h-4 w-4" />
-                        Preview
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={editorMode === "live" ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setEditorMode("live")}
-                        className="flex items-center gap-2"
-                      >
-                        <Code className="h-4 w-4" />
-                        Split View
-                      </Button>
-                    </div>
-                    
-                    {/* Word Count & Reading Time */}
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-lg">
-                        <FileText className="h-4 w-4" />
-                        <span>{pitch.split(/\s+/).filter(word => word.length > 0).length} words</span>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-1 bg-muted/50 rounded-lg">
-                        <Clock className="h-4 w-4" />
-                        <span>{Math.ceil(pitch.split(/\s+/).filter(word => word.length > 0).length / 200)} min read</span>
-                      </div>
-                    </div>
-                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-6">
+                    {/* Paste-ready Markdown format guide */}
+                    <div className="rounded-xl border border-border/50 bg-gradient-to-r from-slate-50 to-white dark:from-slate-950/30 dark:to-black/10 p-5 shadow-sm">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-1">
+                          <h4 className="font-semibold text-foreground flex items-center gap-2">
+                            <HelpCircle className="h-4 w-4 text-slate-600" />
+                            Paste-ready blog format
+                          </h4>
+                          <p className="text-sm text-muted-foreground">
+                            If you’re generating content elsewhere (ChatGPT, Docs, etc.), use this structure so your Markdown
+                            renders correctly when pasted here.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={copyPasteFormat}
+                            className="h-8"
+                            title="Copy the paste-ready format"
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy format
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => insertAtEnd(pasteReadyMarkdownTemplate)}
+                            className="h-8"
+                            title="Insert the template into the editor"
+                          >
+                            <Sparkles className="h-4 w-4 mr-2" />
+                            Insert
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <div className="lg:col-span-2 rounded-lg border border-border/40 bg-background/60 p-3">
+                          <pre className="text-xs leading-relaxed whitespace-pre-wrap font-mono text-foreground/90 max-h-56 overflow-auto">
+                            {pasteReadyMarkdownTemplate}
+                          </pre>
+                        </div>
+                        <div className="rounded-lg border border-border/40 bg-background/60 p-3">
+                          <p className="text-xs font-semibold text-foreground mb-2">Quick rules</p>
+                          <ul className="text-xs text-muted-foreground space-y-1">
+                            <li>
+                              <span className="font-medium text-foreground">Headings</span>: start lines with <code className="px-1 py-0.5 bg-muted rounded">#</code>,{" "}
+                              <code className="px-1 py-0.5 bg-muted rounded">##</code>, <code className="px-1 py-0.5 bg-muted rounded">###</code>
+                            </li>
+                            <li>
+                              <span className="font-medium text-foreground">Lists</span>: start lines with <code className="px-1 py-0.5 bg-muted rounded">-</code> or{" "}
+                              <code className="px-1 py-0.5 bg-muted rounded">1.</code>
+                            </li>
+                            <li>
+                              <span className="font-medium text-foreground">Code blocks</span>: wrap with triple backticks{" "}
+                              <code className="px-1 py-0.5 bg-muted rounded">```</code> (optionally add a language)
+                            </li>
+                            <li>
+                              <span className="font-medium text-foreground">Links</span>: <code className="px-1 py-0.5 bg-muted rounded">[text](url)</code>
+                            </li>
+                            <li>
+                              <span className="font-medium text-foreground">Images</span>: <code className="px-1 py-0.5 bg-muted rounded">![alt](url)</code>
+                            </li>
+                            <li>
+                              <span className="font-medium text-foreground">Spacing</span>: add a blank line between sections for best rendering
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Enhanced Editor Container */}
                     <div className="border-2 border-border/50 rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300">
                       {/* Editor Header */}
@@ -858,16 +1176,41 @@ This post covers the fundamentals of promises and their practical applications.`
                               <p className="text-sm text-muted-foreground">Full-featured editor with live preview</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-3 flex-wrap">
                             {/* Word Count Badge */}
                             <div className="flex items-center gap-2 px-3 py-1 bg-white/60 dark:bg-black/20 rounded-lg border border-border/30">
                               <FileText className="h-4 w-4 text-purple-600" />
-                              <span className="text-sm font-medium">{pitch.split(/\s+/).filter(word => word.length > 0).length} words</span>
+                              <span className="text-sm font-medium">{stats.words} words</span>
                             </div>
-                            {/* Auto-save Indicator */}
-                            <div className="flex items-center gap-2 px-3 py-1 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800/50">
-                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                              <span className="text-xs font-medium text-green-700 dark:text-green-300">Auto-save</span>
+                            {/* Reading Time Badge */}
+                            <div className="flex items-center gap-2 px-3 py-1 bg-white/60 dark:bg-black/20 rounded-lg border border-border/30">
+                              <Clock className="h-4 w-4 text-purple-600" />
+                              <span className="text-sm font-medium">{stats.readingTime} min read</span>
+                            </div>
+                            {/* Real Auto-save Indicator */}
+                            <div
+                              className={cn(
+                                "flex items-center gap-2 px-3 py-1 rounded-lg border text-xs font-medium transition-colors",
+                                isSavingDraft
+                                  ? "bg-amber-50 border-amber-200 text-amber-700 dark:bg-amber-950/30 dark:border-amber-800/50 dark:text-amber-300"
+                                  : lastSavedAt
+                                  ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-950/30 dark:border-green-800/50 dark:text-green-300"
+                                  : "bg-muted border-border/30 text-muted-foreground"
+                              )}
+                              title={
+                                lastSavedAt
+                                  ? `Auto-saved locally at ${new Date(lastSavedAt).toLocaleTimeString()}`
+                                  : "Your draft is stored in this browser until you publish."
+                              }
+                            >
+                              {isSavingDraft ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : lastSavedAt ? (
+                                <CheckCircle className="w-3 h-3" />
+                              ) : (
+                                <Clock className="w-3 h-3" />
+                              )}
+                              <span>{saveStatusLabel}</span>
                             </div>
                           </div>
                         </div>
@@ -911,7 +1254,7 @@ This post covers the fundamentals of promises and their practical applications.`
                           </div>
                           
                           {/* Quick Actions */}
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <Button
                               type="button"
                               variant="ghost"
@@ -950,10 +1293,21 @@ Wrap up with a strong conclusion and clear call-to-action.
 
 ---
 *What's your next step? Let me know in the comments!*`;
-                                setPitch(template);
+                                const hasContent = pitch.trim().length > 0;
+                                if (!hasContent) {
+                                  setPitch(template);
+                                  return;
+                                }
+                                const action = window.confirm(
+                                  "You already have content.\n\nClick OK to APPEND the template to your current content.\nClick Cancel to keep your work untouched."
+                                );
+                                if (action) {
+                                  insertAtEnd(template);
+                                  toast({ title: "Template appended", description: "The starter template was added to the end of your post." });
+                                }
                               }}
                               className="h-8 px-3 text-xs bg-purple-50 hover:bg-purple-100 dark:bg-purple-950/30 dark:hover:bg-purple-900/30"
-                              title="Insert enhanced template"
+                              title="Insert starter template (appends if content exists)"
                             >
                               <Sparkles className="h-3 w-3 mr-1" />
                               Template
@@ -962,26 +1316,60 @@ Wrap up with a strong conclusion and clear call-to-action.
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => {
-                                const count = pitch.split(/\s+/).filter(word => word.length > 0).length;
-                                const readTime = Math.ceil(count / 200);
-                                alert(`📊 Content Stats:\n\n• ${pitch.length} characters\n• ${count} words\n• ~${readTime} min read time\n• ${pitch.split('\n').length} lines`);
-                              }}
-                              className="h-8 px-3 text-xs bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:hover:bg-blue-900/30"
-                              title="Show content statistics"
+                              onClick={() => setShowDetailedStats((v) => !v)}
+                              aria-pressed={showDetailedStats}
+                              className={cn(
+                                "h-8 px-3 text-xs",
+                                showDetailedStats
+                                  ? "bg-blue-100 dark:bg-blue-900/40"
+                                  : "bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:hover:bg-blue-900/30"
+                              )}
+                              title="Toggle detailed statistics"
                             >
-                              <FileText className="h-3 w-3 mr-1" />
+                              <BarChart3 className="h-3 w-3 mr-1" />
                               Stats
                             </Button>
                             <Button
                               type="button"
                               variant="ghost"
                               size="sm"
-                              onClick={() => setPitch("")}
-                              className="h-8 px-3 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30"
-                              title="Clear all content"
+                              onClick={copyMarkdown}
+                              className="h-8 px-3 text-xs bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/30 dark:hover:bg-slate-900/30"
+                              title="Copy markdown to clipboard"
                             >
-                              <AlertCircle className="h-3 w-3 mr-1" />
+                              <Copy className="h-3 w-3 mr-1" />
+                              Copy
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={downloadMarkdown}
+                              className="h-8 px-3 text-xs bg-slate-50 hover:bg-slate-100 dark:bg-slate-950/30 dark:hover:bg-slate-900/30"
+                              title="Download as .md file"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              Download
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (!pitch) return;
+                                const confirmed = window.confirm(
+                                  `Clear all content?\n\nThis will remove ${stats.words} words (${stats.characters} characters).\nThis action cannot be undone.`
+                                );
+                                if (confirmed) {
+                                  setPitch("");
+                                  toast({ title: "Content cleared", description: "The editor is now empty." });
+                                }
+                              }}
+                              disabled={!pitch}
+                              className="h-8 px-3 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 disabled:opacity-40"
+                              title="Clear all content (with confirmation)"
+                            >
+                              <Trash2 className="h-3 w-3 mr-1" />
                               Clear
                             </Button>
                           </div>
@@ -992,7 +1380,10 @@ Wrap up with a strong conclusion and clear call-to-action.
                       <div className="relative">
                   <MDEditor
                     value={pitch}
-                          onChange={(value) => setPitch(value || "")}
+                          onChange={(value) => {
+                            const normalized = normalizeMarkdown(value || "");
+                            setPitch((prev) => (prev === normalized ? prev : normalized));
+                          }}
                     id="pitch"
                           preview={editorMode}
                           height={650}
@@ -1066,50 +1457,149 @@ Your readers will love this well-structured content!`,
                           }}
                         />
                         
-                        {/* Content Quality Indicator */}
-                        <div className="absolute bottom-4 right-4 flex items-center gap-2 p-2 bg-white/90 dark:bg-black/80 rounded-lg shadow-lg border border-border/50 backdrop-blur-sm">
-                          <div className={`w-2 h-2 rounded-full ${pitch.length > 1000 ? 'bg-green-500' : pitch.length > 500 ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
-                          <span className="text-xs font-medium">
-                            {pitch.length > 1000 ? 'Excellent' : pitch.length > 500 ? 'Good' : 'Add more content'}
+                        {/* Content Quality Indicator — driven by word count, not character count */}
+                        <div
+                          className="absolute bottom-4 right-4 flex items-center gap-2 p-2 bg-white/90 dark:bg-black/80 rounded-lg shadow-lg border border-border/50 backdrop-blur-sm pointer-events-none"
+                          title={`Quality is based on word count. Current: ${stats.words} words`}
+                        >
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              stats.quality === "excellent" && "bg-green-500",
+                              stats.quality === "good" && "bg-emerald-500",
+                              stats.quality === "short" && "bg-yellow-500",
+                              stats.quality === "empty" && "bg-red-500"
+                            )}
+                          />
+                          <span className="text-xs font-medium capitalize">
+                            {stats.quality === "empty"
+                              ? "Add content"
+                              : stats.quality === "short"
+                              ? "Keep going"
+                              : stats.quality === "good"
+                              ? "Good length"
+                              : "Excellent"}
                           </span>
                         </div>
                       </div>
                     </div>
                     
                     {/* Enhanced Content Stats */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800/50">
-                        <div className="p-2 bg-blue-500 rounded-lg">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-950/30 dark:to-blue-900/30 rounded-lg border border-blue-200 dark:border-blue-800/50">
+                        <div className="p-2 bg-blue-500 rounded-lg shrink-0">
                           <FileText className="h-4 w-4 text-white" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100">Content Length</p>
-                          <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{pitch.length} characters</p>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-blue-900 dark:text-blue-100">Words</p>
+                          <p className="text-lg font-bold text-blue-700 dark:text-blue-300 truncate">
+                            {stats.words.toLocaleString()}
+                          </p>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/30 rounded-lg border border-green-200 dark:border-green-800/50">
-                        <div className="p-2 bg-green-500 rounded-lg">
+
+                      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-950/30 dark:to-green-900/30 rounded-lg border border-green-200 dark:border-green-800/50">
+                        <div className="p-2 bg-green-500 rounded-lg shrink-0">
                           <Clock className="h-4 w-4 text-white" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-green-900 dark:text-green-100">Reading Time</p>
-                          <p className="text-lg font-bold text-green-700 dark:text-green-300">{Math.ceil(pitch.split(/\s+/).filter(word => word.length > 0).length / 200)} min</p>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-green-900 dark:text-green-100">Reading time</p>
+                          <p className="text-lg font-bold text-green-700 dark:text-green-300 truncate">
+                            {stats.readingTime} min
+                          </p>
                         </div>
                       </div>
-                      
-                      <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800/50">
-                        <div className="p-2 bg-purple-500 rounded-lg">
-                          <CheckCircle className="h-4 w-4 text-white" />
+
+                      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-amber-50 to-amber-100 dark:from-amber-950/30 dark:to-amber-900/30 rounded-lg border border-amber-200 dark:border-amber-800/50">
+                        <div className="p-2 bg-amber-500 rounded-lg shrink-0">
+                          <BookOpen className="h-4 w-4 text-white" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Status</p>
-                          <p className={`text-lg font-bold ${pitch.length > 50 ? 'text-purple-700 dark:text-purple-300' : 'text-red-600 dark:text-red-400'}`}>
-                            {pitch.length > 50 ? 'Ready' : 'Incomplete'}
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-amber-900 dark:text-amber-100">Headings</p>
+                          <p className="text-lg font-bold text-amber-700 dark:text-amber-300 truncate">
+                            {stats.headings}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-950/30 dark:to-purple-900/30 rounded-lg border border-purple-200 dark:border-purple-800/50">
+                        <div
+                          className={cn(
+                            "p-2 rounded-lg shrink-0",
+                            isPitchValid ? "bg-purple-500" : "bg-red-500"
+                          )}
+                        >
+                          {isPitchValid ? (
+                            <CheckCircle className="h-4 w-4 text-white" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-white" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-purple-900 dark:text-purple-100">Status</p>
+                          <p
+                            className={cn(
+                              "text-lg font-bold truncate",
+                              isPitchValid
+                                ? "text-purple-700 dark:text-purple-300"
+                                : "text-red-600 dark:text-red-400"
+                            )}
+                          >
+                            {isPitchValid ? "Ready" : "Too short"}
                           </p>
                         </div>
                       </div>
                     </div>
+
+                    {/* Detailed Stats Panel (toggled by the Stats toolbar button) */}
+                    {showDetailedStats && (
+                      <div className="rounded-xl border border-border/50 bg-card/50 p-5 shadow-sm">
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="font-semibold flex items-center gap-2">
+                            <BarChart3 className="h-4 w-4 text-blue-600" />
+                            Detailed content statistics
+                          </h4>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setShowDetailedStats(false)}
+                            className="h-7 w-7 p-0"
+                            aria-label="Close detailed stats"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                          {[
+                            { label: "Characters", value: stats.characters.toLocaleString() },
+                            { label: "Characters (no spaces)", value: stats.charactersNoSpaces.toLocaleString() },
+                            { label: "Words", value: stats.words.toLocaleString() },
+                            { label: "Sentences", value: stats.sentences.toLocaleString() },
+                            { label: "Paragraphs", value: stats.paragraphs.toLocaleString() },
+                            { label: "Lines", value: stats.lines.toLocaleString() },
+                            { label: "Headings", value: stats.headings.toLocaleString() },
+                            { label: "Code blocks", value: stats.codeBlocks.toLocaleString() },
+                            { label: "Links", value: stats.links.toLocaleString() },
+                            { label: "Images", value: stats.images.toLocaleString() },
+                            { label: "Reading time", value: `${stats.readingTime} min` },
+                            { label: "Quality", value: stats.quality },
+                          ].map((item) => (
+                            <div
+                              key={item.label}
+                              className="rounded-lg border border-border/40 bg-background/60 px-3 py-2"
+                            >
+                              <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                                {item.label}
+                              </dt>
+                              <dd className="mt-1 text-base font-semibold capitalize">
+                                {item.value}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    )}
 
                     {/* Keyboard Shortcuts */}
                     <div className="bg-gradient-to-r from-gray-50 to-slate-50 dark:from-gray-950/30 dark:to-slate-950/30 rounded-xl p-6 border border-gray-200 dark:border-gray-800/50 shadow-lg">
@@ -1119,58 +1609,60 @@ Your readers will love this well-structured content!`,
                         </div>
                         ⌨️ Keyboard Shortcuts
                       </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
-                        <div className="space-y-2">
-                          <h5 className="font-semibold text-gray-800 dark:text-gray-200">Text Formatting</h5>
-                          <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                            <div className="flex justify-between">
-                              <span>Bold</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+B</kbd>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Italic</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+I</kbd>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Code</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+K</kbd>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Shortcuts work when the cursor is inside the editor.{" "}
+                        <span className="inline md:hidden">(Use ⌘ on macOS instead of Ctrl.)</span>
+                        <span className="hidden md:inline">On macOS use ⌘ instead of Ctrl.</span>
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-sm">
+                        {[
+                          {
+                            title: "Text Formatting",
+                            rows: [
+                              { label: "Bold", keys: "Ctrl+B" },
+                              { label: "Italic", keys: "Ctrl+I" },
+                              { label: "Strikethrough", keys: "Ctrl+Shift+X" },
+                              { label: "Inline code", keys: "Ctrl+J" },
+                            ],
+                          },
+                          {
+                            title: "Structure",
+                            rows: [
+                              { label: "Heading 1 → 6", keys: "Ctrl+1 … Ctrl+6" },
+                              { label: "Unordered list", keys: "Ctrl+Shift+U" },
+                              { label: "Ordered list", keys: "Ctrl+Shift+O" },
+                              { label: "Blockquote", keys: "Ctrl+Shift+Q" },
+                            ],
+                          },
+                          {
+                            title: "Insert & Save",
+                            rows: [
+                              { label: "Link", keys: "Ctrl+L" },
+                              { label: "Image", keys: "Ctrl+Shift+I" },
+                              { label: "Code block", keys: "Ctrl+Shift+C" },
+                              { label: `${isEditMode ? "Update" : "Publish"} post`, keys: "Ctrl+S" },
+                            ],
+                          },
+                        ].map((group) => (
+                          <div key={group.title} className="space-y-2">
+                            <h5 className="font-semibold text-gray-800 dark:text-gray-200">
+                              {group.title}
+                            </h5>
+                            <div className="space-y-1.5 text-xs text-gray-600 dark:text-gray-400">
+                              {group.rows.map((row) => (
+                                <div
+                                  key={row.label}
+                                  className="flex items-center justify-between gap-3"
+                                >
+                                  <span>{row.label}</span>
+                                  <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs font-mono whitespace-nowrap">
+                                    {row.keys}
+                                  </kbd>
+                                </div>
+                              ))}
                             </div>
                           </div>
-                        </div>
-                        <div className="space-y-2">
-                          <h5 className="font-semibold text-gray-800 dark:text-gray-200">Editor Actions</h5>
-                          <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                            <div className="flex justify-between">
-                              <span>Save</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+S</kbd>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Undo</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+Z</kbd>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Redo</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+Y</kbd>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="space-y-2">
-                          <h5 className="font-semibold text-gray-800 dark:text-gray-200">Quick Inserts</h5>
-                          <div className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                            <div className="flex justify-between">
-                              <span>Link</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+L</kbd>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Image</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+Alt+I</kbd>
-                            </div>
-                            <div className="flex justify-between">
-                              <span>Code Block</span>
-                              <kbd className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Ctrl+Alt+C</kbd>
-                            </div>
-                          </div>
-                        </div>
+                        ))}
                       </div>
                     </div>
 
