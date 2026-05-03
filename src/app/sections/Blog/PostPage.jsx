@@ -1,14 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { parseISO, format } from "date-fns";
 import CategoryLabel from "@/components/blog/category";
 import markdownit from "markdown-it";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CodeBlock } from "@/components/ui/code-block";
 import React from "react";
-import { ArrowLeft, CalendarDays, Timer } from "lucide-react";
+import { ArrowLeft, Timer } from "lucide-react";
 const md = markdownit();
 export default function Post(props) {
   const { loading, post } = props;
@@ -77,15 +76,6 @@ export default function Post(props) {
                   <p className="text-sm font-semibold text-foreground">{post.author.name}</p>
                 )}
                 <div className="mt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-sm text-muted-foreground">
-                  <span className="inline-flex items-center gap-1.5">
-                    <CalendarDays className="h-4 w-4" />
-                    <time dateTime={post?.publishedAt || post._createdAt}>
-                      {format(
-                        parseISO(post?.publishedAt || post._createdAt),
-                        "MMMM dd, yyyy"
-                      )}
-                    </time>
-                  </span>
                   {readingTime > 0 && (
                     <span className="inline-flex items-center gap-1.5">
                       <Timer className="h-4 w-4" />

@@ -50,7 +50,6 @@ export const HoverEffect = ({
           </AnimatePresence>
           <Card className="flex flex-col justify-between">
             <CardImage>{item.imageSrc}</CardImage>
-            <CardDate>{item.date}</CardDate>
             <CardTitle>{item.title}</CardTitle>
             <CardDescription>{item.desc}</CardDescription>
             <CardButton href={item.authorLink}>Read More</CardButton>
@@ -128,22 +127,6 @@ export const CardImage = ({
         width={500}
         height={500}
       />
-    </div>
-  );
-};
-
-export const CardDate = ({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) => {
-  return (
-    <div>
-      <p className=" text-sm flex flex-col items-start max-w-[150px] mt-2  bg-white/90 rounded-lg p-2">
-        {children}
-      </p>
     </div>
   );
 };

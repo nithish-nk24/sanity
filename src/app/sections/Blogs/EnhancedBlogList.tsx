@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { Filter, Grid3X3, List, Clock, User, Share2 } from "lucide-react";
+import { Filter, Grid3X3, List, User, Share2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,7 +9,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import Image from "next/image";
 import Link from "next/link";
-import { parseISO, format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
 interface BlogPost {
@@ -354,12 +353,6 @@ const EnhancedBlogList = ({ posts, searchQuery }: EnhancedBlogListProps) => {
                         <User className="h-4 w-4" />
                       )}
                       <span className="truncate max-w-40">{post.author?.name || "Anonymous"}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Clock className="h-4 w-4" />
-                      <time dateTime={post._createdAt}>
-                        {format(parseISO(post._createdAt), "MMM dd, yyyy")}
-                      </time>
                     </div>
                   </div>
 

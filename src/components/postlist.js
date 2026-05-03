@@ -1,7 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { cx } from "@/lib/all";
-import { parseISO, format } from "date-fns";
 import { PhotoIcon } from "@heroicons/react/24/outline";
 import CategoryLabel from "@/components/blog/category";
 
@@ -85,8 +84,8 @@ export default function PostList({
           )}
 
           {/* Author Info */}
-          <div className="mt-3 flex items-center space-x-3 text-gray-500 dark:text-gray-400">
-            {post?.author?.name && (
+          {post?.author?.name && (
+            <div className="mt-3 flex items-center space-x-3 text-gray-500 dark:text-gray-400">
               <Link href="#" className="flex items-center gap-3" aria-label={`Author: ${post?.author?.name}`}>
                 <div className="relative h-5 w-5 flex-shrink-0">
                   {authorImageSrc && (
@@ -101,14 +100,8 @@ export default function PostList({
                 </div>
                 <span className="truncate text-sm">{post?.author?.name}</span>
               </Link>
-            )}
-            <span className="text-xs text-gray-300 dark:text-gray-600">
-              &bull;
-            </span>
-            <time className="truncate text-sm" dateTime={post?._createdAt}>
-              {format(parseISO(post?._createdAt), "MMMM dd, yyyy")}
-            </time>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

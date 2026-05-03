@@ -1,15 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, Clock, User, Mail, Tag, BookOpen, ArrowRight } from "lucide-react";
+import { TrendingUp, User, Mail, Tag, BookOpen, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import Link from "next/link";
-import { parseISO, format } from "date-fns";
-
 interface BlogPost {
   _id: string;
   title: string;
@@ -125,12 +123,6 @@ const BlogSidebar = ({ posts }: BlogSidebarProps) => {
                     {post.title}
                   </Link>
                 </h4>
-                <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                  <Clock className="h-3 w-3" />
-                  <time dateTime={post._createdAt}>
-                    {format(parseISO(post._createdAt), "MMM dd")}
-                  </time>
-                </div>
               </div>
             </div>
           ))}
